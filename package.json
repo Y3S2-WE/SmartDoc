@@ -1,0 +1,37 @@
+{
+  "name": "smartdoc-healthcare-platform",
+  "version": "1.0.0",
+  "description": "AI-Enabled Smart Healthcare Appointment & Telemedicine Platform using Microservices",
+  "main": "index.js",
+  "scripts": {
+    "start:auth": "cd services/auth-service && npm start",
+    "start:patient": "cd services/patient-service && npm start",
+    "start:doctor": "cd services/doctor-service && npm start",
+    "start:appointment": "cd services/appointment-service && npm start",
+    "start:payment": "cd services/payment-service && npm start",
+    "start:notification": "cd services/notification-service && npm start",
+    "start:telemedicine": "cd services/telemedicine-service && npm start",
+    "dev:auth": "cd services/auth-service && npm run dev",
+    "dev:patient": "cd services/patient-service && npm run dev",
+    "dev:doctor": "cd services/doctor-service && npm run dev",
+    "dev:appointment": "cd services/appointment-service && npm run dev",
+    "dev:payment": "cd services/payment-service && npm run dev",
+    "dev:notification": "cd services/notification-service && npm run dev",
+    "dev:telemedicine": "cd services/telemedicine-service && npm run dev",
+    "dev:all": "concurrently \"npm run dev:auth\" \"npm run dev:patient\" \"npm run dev:doctor\" \"npm run dev:appointment\" \"npm run dev:payment\" \"npm run dev:notification\" \"npm run dev:telemedicine\"",
+    "start:all": "concurrently \"npm run start:auth\" \"npm run start:patient\" \"npm run start:doctor\" \"npm run start:appointment\" \"npm run start:payment\" \"npm run start:notification\" \"npm run start:telemedicine\"",
+    "install:all": "npm install && cd services/auth-service && npm install && cd ../patient-service && npm install && cd ../doctor-service && npm install && cd ../appointment-service && npm install && cd ../payment-service && npm install && cd ../notification-service && npm install && cd ../telemedicine-service && npm install"
+  },
+  "keywords": [
+    "healthcare",
+    "telemedicine",
+    "microservices",
+    "appointment",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
