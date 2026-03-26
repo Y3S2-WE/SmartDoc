@@ -39,9 +39,14 @@ function Header({ session, onLogout }) {
                 <HeartPulse size={14} className="mr-1" /> {session.user.role}
               </span>
               {session.user.role === 'patient' ? (
-                <Button variant="secondary" size="sm" onClick={() => navigate('/dashboard/patient')}>
-                  Patient Dashboard
-                </Button>
+                <>
+                  <Button variant="secondary" size="sm" onClick={() => navigate('/dashboard/patient')}>
+                    Patient Dashboard
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/appointments')}>
+                    Book Appointment
+                  </Button>
+                </>
               ) : null}
               {session.user.role === 'doctor' ? (
                 <Button variant="secondary" size="sm" onClick={() => navigate('/dashboard/doctor')}>

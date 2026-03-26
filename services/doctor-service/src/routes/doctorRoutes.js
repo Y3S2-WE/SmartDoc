@@ -4,11 +4,14 @@ const {
   getMyDoctorProfile,
   updateMyDoctorProfile,
   issueDigitalPrescription,
-  listPatientUploadedReports
+  listPatientUploadedReports,
+  getPublicDoctorProfile
 } = require('../controllers/doctorController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+router.get('/public/:authUserId/profile', getPublicDoctorProfile);
 
 router.get('/me/profile', protect, authorize('doctor'), getMyDoctorProfile);
 router.put('/me/profile', protect, authorize('doctor'), updateMyDoctorProfile);

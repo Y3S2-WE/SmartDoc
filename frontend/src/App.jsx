@@ -9,6 +9,7 @@ import DoctorRegisterPage from './pages/DoctorRegisterPage';
 import PatientDashboard from './pages/Patient-Dashboard';
 import DoctorDashboard from './pages/Doctor-Dashboard';
 import AdminDashboard from './pages/Admin-Dashboard';
+import AppointmentsPage from './pages/Appointments';
 
 function App() {
   const [session, setSession] = useState(() => {
@@ -40,6 +41,16 @@ function App() {
           element={
             session?.user?.role === 'patient' ? (
               <PatientDashboard session={session} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/appointments"
+          element={
+            session?.user?.role === 'patient' ? (
+              <AppointmentsPage session={session} />
             ) : (
               <Navigate to="/login" replace />
             )

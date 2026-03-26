@@ -222,6 +222,22 @@ const listUsers = async (req, res, next) => {
   }
 };
 
+const listApprovedDoctors = async (req, res, next) => {
+  try {
+    const doctors = await User.find({
+      role: ROLES.DOCTOR,
+      isActive: true,
+      $or: [{ 'doctorProfile.isVerified': true }, { 'doctorProfile.verificationStatus': 'approved' }]
+    })
+      .select('-password')
+      .sort({ fullName: 1 });
+
+    res.status(200).json({ count: doctors.length, doctors });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const verifyDoctor = async (req, res, next) => {
   try {
     const approved = req.body?.approved !== false;
@@ -261,5 +277,6 @@ module.exports = {
   login,
   getCurrentUser,
   listUsers,
+  listApprovedDoctors,
   verifyDoctor
 };

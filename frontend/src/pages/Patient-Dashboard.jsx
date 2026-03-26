@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
+  CalendarCheck2,
   FileUp,
   HeartPulse,
   MapPin,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { PATIENT_API_URL } from '../lib/api';
+import { APPOINTMENT_API_URL } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -43,6 +45,7 @@ function PatientDashboard({ session }) {
   const [isProfileEditing, setIsProfileEditing] = useState(false);
   const [reports, setReports] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [reportTitle, setReportTitle] = useState('');
   const [reportDescription, setReportDescription] = useState('');
@@ -66,10 +69,11 @@ function PatientDashboard({ session }) {
 
   const loadPatientDashboard = async () => {
     try {
-      const [profileRes, reportsRes, prescriptionsRes] = await Promise.all([
+      const [profileRes, reportsRes, prescriptionsRes, appointmentsRes] = await Promise.all([
         axios.get(`${PATIENT_API_URL}/me/profile`, { headers: authHeader }),
         axios.get(`${PATIENT_API_URL}/me/reports`, { headers: authHeader }),
-        axios.get(`${PATIENT_API_URL}/me/prescriptions`, { headers: authHeader })
+        axios.get(`${PATIENT_API_URL}/me/prescriptions`, { headers: authHeader }),
+        axios.get(`${APPOINTMENT_API_URL}/me/patient`, { headers: authHeader })
       ]);
 
       const profile = profileRes.data.profile || {};
@@ -95,6 +99,7 @@ function PatientDashboard({ session }) {
 
       setReports(reportsRes.data.reports || []);
       setPrescriptions(prescriptionsRes.data.prescriptions || []);
+      setAppointments(appointmentsRes.data.appointments || []);
     } catch (error) {
       setFeedback(error.response?.data?.message || 'Unable to load patient dashboard.');
     }
@@ -155,6 +160,26 @@ function PatientDashboard({ session }) {
     }
   };
 
+  const cancelAppointment = async (appointmentId) => {
+    const shouldCancel = window.confirm('Are you sure you want to cancel this appointment?');
+    if (!shouldCancel) {
+      return;
+    }
+
+    setLoading(true);
+    setFeedback('');
+
+    try {
+      const response = await axios.patch(`${APPOINTMENT_API_URL}/me/patient/${appointmentId}/cancel`, {}, { headers: authHeader });
+      setFeedback(response.data.message || 'Appointment cancelled successfully.');
+      await loadPatientDashboard();
+    } catch (error) {
+      setFeedback(error.response?.data?.message || 'Failed to cancel appointment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const initials = (dashboardProfile.fullName || session.user.fullName || 'P')
     .split(' ')
     .map((part) => part[0])
@@ -198,6 +223,7 @@ function PatientDashboard({ session }) {
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
               <StatTag label="Reports" value={String(reports.length)} />
               <StatTag label="Prescriptions" value={String(prescriptions.length)} />
+              <StatTag label="Appointments" value={String(appointments.length)} />
             </div>
 
             <Button className="mt-4 w-full" onClick={() => setIsProfileEditing(true)}>
@@ -275,6 +301,42 @@ function PatientDashboard({ session }) {
                   ))}
                   {prescriptions.length === 0 ? <p className="text-sm text-ink/65">No prescriptions found.</p> : null}
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/45 bg-white/60 p-4">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-lake">
+                <CalendarCheck2 size={15} /> Booked Appointments
+              </p>
+              <div className="space-y-2">
+                {appointments.slice(0, 5).map((item) => (
+                  <div key={item._id} className="rounded-lg border border-lake/10 bg-white p-2 text-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">
+                      Appointment #{item.appointmentNumber || '-'}
+                    </p>
+                    <p className="font-semibold text-lake">Dr. {item.doctorName}</p>
+                    <p className="text-xs text-ink/70">{item.specialization || 'General'}</p>
+                    <p className="text-xs text-ink/70">{item.hospitalOrClinicName || 'Hospital / Clinic not provided'}</p>
+                    <p className="text-xs text-ink/70">
+                      {item.appointmentDate} at {item.appointmentTimeSlot} ({item.appointmentType})
+                    </p>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">Status: {item.status}</p>
+                      {item.status !== 'cancelled' ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => cancelAppointment(item._id)}
+                          disabled={loading}
+                        >
+                          Cancel
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+                {appointments.length === 0 ? <p className="text-sm text-ink/65">No appointments booked yet.</p> : null}
               </div>
             </div>
           </CardContent>

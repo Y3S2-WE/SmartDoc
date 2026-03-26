@@ -1,5 +1,13 @@
 const mongoose = require('mongoose');
 
+const availabilitySlotSchema = new mongoose.Schema(
+  {
+    date: { type: String, trim: true, required: true },
+    timeSlots: [{ type: String, trim: true }]
+  },
+  { _id: false }
+);
+
 const doctorProfileSchema = new mongoose.Schema(
   {
     authUserId: { type: String, required: true, unique: true, index: true },
@@ -17,7 +25,8 @@ const doctorProfileSchema = new mongoose.Schema(
     city: { type: String, trim: true, default: '' },
     district: { type: String, trim: true, default: '' },
     bio: { type: String, trim: true, default: '' },
-    availabilityNotes: { type: String, trim: true, default: '' }
+    availabilityNotes: { type: String, trim: true, default: '' },
+    availabilitySchedule: [availabilitySlotSchema]
   },
   { timestamps: true }
 );

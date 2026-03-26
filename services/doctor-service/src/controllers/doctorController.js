@@ -22,6 +22,30 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(converted) ? converted : fallback;
 };
 
+const parseAvailabilitySchedule = (value) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      const date = String(entry?.date || '').trim();
+
+      const timeSlots = Array.isArray(entry?.timeSlots)
+        ? entry.timeSlots.map((slot) => String(slot).trim()).filter(Boolean)
+        : String(entry?.timeSlots || '')
+            .split(',')
+            .map((slot) => slot.trim())
+            .filter(Boolean);
+
+      return {
+        date,
+        timeSlots: [...new Set(timeSlots)]
+      };
+    })
+    .filter((entry) => entry.date && entry.timeSlots.length > 0);
+};
+
 const getMyDoctorProfile = async (req, res, next) => {
   try {
     const authUserId = req.user.userId;
@@ -60,7 +84,8 @@ const updateMyDoctorProfile = async (req, res, next) => {
           city: req.body.city ?? '',
           district: req.body.district ?? '',
           bio: req.body.bio ?? '',
-          availabilityNotes: req.body.availabilityNotes ?? ''
+          availabilityNotes: req.body.availabilityNotes ?? '',
+          availabilitySchedule: parseAvailabilitySchedule(req.body.availabilitySchedule)
         }
       },
       { new: true, upsert: true }
@@ -125,9 +150,38 @@ const listPatientUploadedReports = async (req, res, next) => {
   }
 };
 
+const getPublicDoctorProfile = async (req, res, next) => {
+  try {
+    const profile = await DoctorProfile.findOne({ authUserId: req.params.authUserId });
+
+    if (!profile) {
+      res.status(404);
+      throw new Error('Doctor profile not found');
+    }
+
+    res.status(200).json({
+      profile: {
+        authUserId: profile.authUserId,
+        fullName: profile.fullName,
+        profilePhoto: profile.profilePhoto,
+        specialization: profile.specialization,
+        hospitalOrClinicName: profile.hospitalOrClinicName,
+        consultationFee: profile.consultationFee,
+        city: profile.city,
+        district: profile.district,
+        availabilityNotes: profile.availabilityNotes,
+        availabilitySchedule: profile.availabilitySchedule || []
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyDoctorProfile,
   updateMyDoctorProfile,
   issueDigitalPrescription,
-  listPatientUploadedReports
+  listPatientUploadedReports,
+  getPublicDoctorProfile
 };

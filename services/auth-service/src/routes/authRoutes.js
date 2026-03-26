@@ -7,6 +7,7 @@ const {
   login,
   getCurrentUser,
   listUsers,
+  listApprovedDoctors,
   verifyDoctor
 } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -58,6 +59,8 @@ router.post(
 router.post('/login', [emailRule, passwordRule], login);
 
 router.get('/me', protect, getCurrentUser);
+
+router.get('/doctors/approved', listApprovedDoctors);
 
 router.get('/admin/users', protect, authorize(ROLES.ADMIN), listUsers);
 

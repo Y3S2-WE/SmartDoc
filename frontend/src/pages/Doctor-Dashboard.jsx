@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
+  CalendarDays,
+  CalendarCheck2,
   ClipboardPlus,
   Eye,
   FileText,
+  Plus,
+  Trash2,
   Save,
   Search,
   Stethoscope,
@@ -11,7 +15,7 @@ import {
   X
 } from 'lucide-react';
 
-import { DOCTOR_API_URL } from '../lib/api';
+import { APPOINTMENT_API_URL, DOCTOR_API_URL } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -31,7 +35,8 @@ const initialProfile = {
   city: '',
   district: '',
   bio: '',
-  availabilityNotes: ''
+  availabilityNotes: '',
+  availabilitySchedule: []
 };
 
 const initialPrescription = {
@@ -86,6 +91,10 @@ function DoctorDashboard({ session }) {
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [patientSearchId, setPatientSearchId] = useState('');
   const [patientReports, setPatientReports] = useState([]);
+  const [bookedAppointments, setBookedAppointments] = useState([]);
+  const [bookedAppointmentDateFilter, setBookedAppointmentDateFilter] = useState('');
+  const [newAvailabilityDate, setNewAvailabilityDate] = useState('');
+  const [newAvailabilitySlot, setNewAvailabilitySlot] = useState('');
 
   const authHeader = useMemo(() => ({ Authorization: `Bearer ${session.token}` }), [session.token]);
 
@@ -121,13 +130,22 @@ function DoctorDashboard({ session }) {
         city: doctorProfile.city || session.user.doctorProfile?.city || '',
         district: doctorProfile.district || session.user.doctorProfile?.district || '',
         bio: doctorProfile.bio || '',
-        availabilityNotes: doctorProfile.availabilityNotes || ''
+        availabilityNotes: doctorProfile.availabilityNotes || '',
+        availabilitySchedule: Array.isArray(doctorProfile.availabilitySchedule)
+          ? doctorProfile.availabilitySchedule.map((item) => ({
+              date: item.date || '',
+              timeSlots: Array.isArray(item.timeSlots) ? item.timeSlots : []
+            }))
+          : []
       });
 
       setPrescriptionForm((prev) => ({
         ...prev,
         doctorName: doctorProfile.fullName || session.user.fullName || ''
       }));
+
+      const appointmentResponse = await axios.get(`${APPOINTMENT_API_URL}/me/doctor`, { headers: authHeader });
+      setBookedAppointments(appointmentResponse.data.appointments || []);
     } catch (error) {
       setFeedback(error.response?.data?.message || 'Unable to load doctor dashboard.');
     }
@@ -235,6 +253,85 @@ function DoctorDashboard({ session }) {
     }));
   };
 
+  const addAvailabilityDate = () => {
+    const date = newAvailabilityDate.trim();
+    if (!date) {
+      setFeedback('Select a date before adding availability.');
+      return;
+    }
+
+    const exists = profile.availabilitySchedule.some((item) => item.date === date);
+    if (exists) {
+      setFeedback('This date is already added. Add time slots for it below.');
+      return;
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      availabilitySchedule: [...prev.availabilitySchedule, { date, timeSlots: [] }]
+    }));
+    setNewAvailabilityDate('');
+    setFeedback('');
+  };
+
+  const removeAvailabilityDate = (date) => {
+    setProfile((prev) => ({
+      ...prev,
+      availabilitySchedule: prev.availabilitySchedule.filter((item) => item.date !== date)
+    }));
+  };
+
+  const addAvailabilitySlot = (date) => {
+    const slot = newAvailabilitySlot.trim();
+    if (!slot) {
+      setFeedback('Add a time slot (example: 09:00-09:30).');
+      return;
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      availabilitySchedule: prev.availabilitySchedule.map((item) => {
+        if (item.date !== date) {
+          return item;
+        }
+
+        if (item.timeSlots.includes(slot)) {
+          return item;
+        }
+
+        return {
+          ...item,
+          timeSlots: [...item.timeSlots, slot]
+        };
+      })
+    }));
+
+    setNewAvailabilitySlot('');
+    setFeedback('');
+  };
+
+  const removeAvailabilitySlot = (date, slot) => {
+    setProfile((prev) => ({
+      ...prev,
+      availabilitySchedule: prev.availabilitySchedule.map((item) => {
+        if (item.date !== date) {
+          return item;
+        }
+
+        return {
+          ...item,
+          timeSlots: item.timeSlots.filter((timeSlot) => timeSlot !== slot)
+        };
+      })
+    }));
+  };
+
+  const totalSlots = profile.availabilitySchedule.reduce((sum, item) => sum + item.timeSlots.length, 0);
+
+  const filteredBookedAppointments = bookedAppointmentDateFilter
+    ? bookedAppointments.filter((item) => item.appointmentDate === bookedAppointmentDateFilter)
+    : bookedAppointments;
+
   const initials = (profile.fullName || session.user.fullName || 'D')
     .split(' ')
     .map((part) => part[0])
@@ -270,6 +367,8 @@ function DoctorDashboard({ session }) {
               <p><strong>Experience:</strong> {profile.yearsOfExperience || 0} years</p>
               <p><strong>Hospital:</strong> {profile.hospitalOrClinicName || 'Not set'}</p>
               <p><strong>Fee:</strong> {profile.consultationFee ? `LKR ${profile.consultationFee}` : 'Not set'}</p>
+              <p><strong>Available Dates:</strong> {profile.availabilitySchedule.length}</p>
+              <p><strong>Total Slots:</strong> {totalSlots}</p>
             </div>
 
             <Button className="mt-4 w-full" onClick={() => setEditing(true)}>
@@ -392,6 +491,47 @@ function DoctorDashboard({ session }) {
                 )}
               </div>
             </div>
+
+            <div className="rounded-2xl border border-white/45 bg-white/65 p-4">
+              <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-lake">
+                <CalendarCheck2 size={16} /> Booked Appointments
+              </p>
+
+              <div className="mb-3 flex flex-col gap-2 md:flex-row">
+                <Input
+                  type="date"
+                  value={bookedAppointmentDateFilter}
+                  onChange={(e) => setBookedAppointmentDateFilter(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setBookedAppointmentDateFilter('')}
+                  disabled={!bookedAppointmentDateFilter}
+                >
+                  Clear Filter
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {filteredBookedAppointments.slice(0, 6).map((appointment) => (
+                  <div key={appointment._id} className="rounded-xl border border-lake/10 bg-white p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">
+                      Appointment #{appointment.appointmentNumber || '-'}
+                    </p>
+                    <p className="font-semibold text-lake">{appointment.patientName}</p>
+                    <p className="text-xs text-ink/70">{appointment.patientEmail} | {appointment.patientPhoneNumber}</p>
+                    <p className="text-xs text-ink/70">
+                      {appointment.appointmentDate} at {appointment.appointmentTimeSlot} ({appointment.appointmentType})
+                    </p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">Status: {appointment.status}</p>
+                  </div>
+                ))}
+                {filteredBookedAppointments.length === 0 ? (
+                  <p className="rounded-xl border border-lake/10 bg-white px-3 py-2 text-sm text-ink/65">No appointments booked yet.</p>
+                ) : null}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -423,6 +563,71 @@ function DoctorDashboard({ session }) {
               <Field label="District"><Input value={profile.district} onChange={(e) => setProfile({ ...profile, district: e.target.value })} /></Field>
               <Field label="Bio"><Input value={profile.bio} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} /></Field>
               <Field label="Availability Notes"><Input value={profile.availabilityNotes} onChange={(e) => setProfile({ ...profile, availabilityNotes: e.target.value })} /></Field>
+
+              <div className="col-span-full mt-1 rounded-2xl border border-lake/15 bg-white/70 p-4">
+                <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-lake">
+                  <CalendarDays size={16} /> Appointment Availability Schedule
+                </p>
+
+                <div className="mb-3 flex flex-col gap-2 md:flex-row">
+                  <Input
+                    type="date"
+                    value={newAvailabilityDate}
+                    onChange={(e) => setNewAvailabilityDate(e.target.value)}
+                  />
+                  <Button type="button" variant="secondary" onClick={addAvailabilityDate}>
+                    <Plus size={14} /> Add Date
+                  </Button>
+                </div>
+
+                {profile.availabilitySchedule.length === 0 ? (
+                  <p className="text-sm text-ink/65">No availability dates added yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {profile.availabilitySchedule.map((entry) => (
+                      <div key={entry.date} className="rounded-xl border border-lake/10 bg-white p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-lake">{entry.date}</p>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeAvailabilityDate(entry.date)}>
+                            <Trash2 size={14} /> Remove Date
+                          </Button>
+                        </div>
+
+                        <div className="mb-2 flex flex-col gap-2 md:flex-row">
+                          <Input
+                            placeholder="Time slot (example: 09:00-09:30)"
+                            value={newAvailabilitySlot}
+                            onChange={(e) => setNewAvailabilitySlot(e.target.value)}
+                          />
+                          <Button type="button" variant="outline" onClick={() => addAvailabilitySlot(entry.date)}>
+                            <Plus size={14} /> Add Slot
+                          </Button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {entry.timeSlots.length === 0 ? (
+                            <p className="text-sm text-ink/65">No slots added yet for this date.</p>
+                          ) : (
+                            entry.timeSlots.map((slot) => (
+                              <span key={`${entry.date}-${slot}`} className="inline-flex items-center gap-1 rounded-lg border border-lake/20 bg-lake/5 px-2 py-1 text-xs font-medium text-lake">
+                                {slot}
+                                <button
+                                  type="button"
+                                  onClick={() => removeAvailabilitySlot(entry.date, slot)}
+                                  className="rounded p-0.5 transition hover:bg-lake/15"
+                                  aria-label={`Remove ${slot}`}
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="col-span-full mt-2 flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
