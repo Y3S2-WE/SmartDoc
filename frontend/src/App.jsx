@@ -10,75 +10,105 @@ import PatientDashboard from './pages/Patient-Dashboard';
 import DoctorDashboard from './pages/Doctor-Dashboard';
 import AdminDashboard from './pages/Admin-Dashboard';
 import AppointmentsPage from './pages/Appointments';
+import CheckoutPage from './pages/CheckoutPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import PaymentCancelPage from './pages/PaymentCancelPage';
 
 function App() {
-  const [session, setSession] = useState(() => {
-    const stored = localStorage.getItem('smartdoc_auth_session');
-    return stored ? JSON.parse(stored) : null;
-  });
+	const [session, setSession] = useState(() => {
+		const stored = localStorage.getItem('smartdoc_auth_session');
+		return stored ? JSON.parse(stored) : null;
+	});
 
-  const handleLogin = (payload) => {
-    const nextSession = { token: payload.token, user: payload.user };
-    setSession(nextSession);
-    localStorage.setItem('smartdoc_auth_session', JSON.stringify(nextSession));
-  };
+	const handleLogin = (payload) => {
+		const nextSession = { token: payload.token, user: payload.user };
+		setSession(nextSession);
+		localStorage.setItem('smartdoc_auth_session', JSON.stringify(nextSession));
+	};
 
-  const handleLogout = () => {
-    setSession(null);
-    localStorage.removeItem('smartdoc_auth_session');
-  };
+	const handleLogout = () => {
+		setSession(null);
+		localStorage.removeItem('smartdoc_auth_session');
+		localStorage.removeItem('smartdoc_pending_checkout');
+	};
 
-  return (
-    <div className="min-h-screen">
-      <Header session={session} onLogout={handleLogout} />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-        <Route path="/register/patient" element={<PatientRegisterPage onLogin={handleLogin} />} />
-        <Route path="/register/doctor" element={<DoctorRegisterPage onLogin={handleLogin} />} />
-        <Route
-          path="/dashboard/patient"
-          element={
-            session?.user?.role === 'patient' ? (
-              <PatientDashboard session={session} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="/appointments"
-          element={
-            session?.user?.role === 'patient' ? (
-              <AppointmentsPage session={session} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="/dashboard/doctor"
-          element={
-            session?.user?.role === 'doctor' ? (
-              <DoctorDashboard session={session} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="/dashboard/admin"
-          element={
-            session?.user?.role === 'admin' ? (
-              <AdminDashboard session={session} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-      </Routes>
-    </div>
-  );
+	return (
+		<div className="min-h-screen">
+			<Header session={session} onLogout={handleLogout} />
+			<Routes>
+				<Route path="/" element={<HomePage />} />
+				<Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+				<Route path="/register/patient" element={<PatientRegisterPage onLogin={handleLogin} />} />
+				<Route path="/register/doctor" element={<DoctorRegisterPage onLogin={handleLogin} />} />
+				<Route
+					path="/dashboard/patient"
+					element={
+						session?.user?.role === 'patient' ? (
+							<PatientDashboard session={session} />
+						) : (
+							<Navigate to="/login" replace />
+						)
+					}
+				/>
+				<Route
+					path="/appointments"
+					element={
+						session?.user?.role === 'patient' ? (
+							<AppointmentsPage session={session} />
+						) : (
+							<Navigate to="/login" replace />
+						)
+					}
+				/>
+				<Route
+					path="/checkout"
+					element={
+						session?.user?.role === 'patient' ? (
+							<CheckoutPage session={session} />
+						) : (
+							<Navigate to="/login" replace />
+						)
+					}
+				/>
+				<Route
+					path="/payment/success"
+					element={
+						session?.user?.role === 'patient' ? (
+							<PaymentSuccessPage session={session} />
+						) : (
+							<Navigate to="/login" replace />
+						)
+					}
+				/>
+				<Route
+					path="/payment/cancel"
+					element={
+						session?.user?.role === 'patient' ? <PaymentCancelPage /> : <Navigate to="/login" replace />
+					}
+				/>
+				<Route
+					path="/dashboard/doctor"
+					element={
+						session?.user?.role === 'doctor' ? (
+							<DoctorDashboard session={session} />
+						) : (
+							<Navigate to="/login" replace />
+						)
+					}
+				/>
+				<Route
+					path="/dashboard/admin"
+					element={
+						session?.user?.role === 'admin' ? (
+							<AdminDashboard session={session} />
+						) : (
+							<Navigate to="/login" replace />
+						)
+					}
+				/>
+			</Routes>
+		</div>
+	);
 }
 
 export default App;
