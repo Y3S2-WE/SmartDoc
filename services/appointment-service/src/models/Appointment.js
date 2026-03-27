@@ -14,6 +14,8 @@ const appointmentSchema = new mongoose.Schema(
     appointmentType: { type: String, enum: ['video', 'physical'], required: true },
     appointmentDate: { type: String, required: true, trim: true },
     appointmentTimeSlot: { type: String, required: true, trim: true },
+    videoRoomName: { type: String, trim: true, default: '' },
+    videoRoomLink: { type: String, trim: true, default: '' },
 
     patientName: { type: String, trim: true, required: true },
     patientEmail: { type: String, trim: true, lowercase: true, required: true },

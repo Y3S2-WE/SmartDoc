@@ -12,6 +12,7 @@ import {
   Search,
   Stethoscope,
   UserPen,
+  Video,
   X
 } from 'lucide-react';
 
@@ -524,7 +525,16 @@ function DoctorDashboard({ session }) {
                     <p className="text-xs text-ink/70">
                       {appointment.appointmentDate} at {appointment.appointmentTimeSlot} ({appointment.appointmentType})
                     </p>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">Status: {appointment.status}</p>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">Status: {appointment.status}</p>
+                      {appointment.appointmentType === 'video' && appointment.videoRoomLink && appointment.status !== 'cancelled' ? (
+                        <Button asChild type="button" size="sm" variant="secondary">
+                          <a href={appointment.videoRoomLink} target="_blank" rel="noreferrer">
+                            <Video size={14} /> Join Call
+                          </a>
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
                 {filteredBookedAppointments.length === 0 ? (

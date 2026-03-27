@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
 const Counter = require('../models/Counter');
+const axios = require('axios');
 
 const getNextAppointmentNumber = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -9,6 +10,23 @@ const getNextAppointmentNumber = async () => {
   );
 
   return counter.seq;
+};
+
+const createTelemedicineRoom = async ({ appointmentNumber, appointmentDate, appointmentTimeSlot, patientAuthUserId, doctorAuthUserId }) => {
+  const telemedicineServiceUrl = process.env.TELEMEDICINE_SERVICE_URL || 'http://localhost:3007/api/telemedicine';
+
+  const response = await axios.post(`${telemedicineServiceUrl}/sessions`, {
+    appointmentNumber,
+    appointmentDate,
+    appointmentTimeSlot,
+    patientAuthUserId,
+    doctorAuthUserId
+  });
+
+  return {
+    videoRoomName: response.data.roomName || '',
+    videoRoomLink: response.data.roomLink || ''
+  };
 };
 
 const bookAppointment = async (req, res, next) => {
@@ -39,8 +57,25 @@ const bookAppointment = async (req, res, next) => {
       throw new Error('Patient name, email and phone number are required');
     }
 
+    const appointmentNumber = await getNextAppointmentNumber();
+    let videoRoomName = '';
+    let videoRoomLink = '';
+
+    if (appointmentType === 'video') {
+      const telemedicine = await createTelemedicineRoom({
+        appointmentNumber,
+        appointmentDate,
+        appointmentTimeSlot,
+        patientAuthUserId: req.user.userId,
+        doctorAuthUserId
+      });
+
+      videoRoomName = telemedicine.videoRoomName;
+      videoRoomLink = telemedicine.videoRoomLink;
+    }
+
     const appointment = await Appointment.create({
-      appointmentNumber: await getNextAppointmentNumber(),
+      appointmentNumber,
       patientAuthUserId: req.user.userId,
       doctorAuthUserId,
       doctorName: doctorName || 'Doctor',
@@ -51,6 +86,8 @@ const bookAppointment = async (req, res, next) => {
       appointmentType,
       appointmentDate,
       appointmentTimeSlot,
+      videoRoomName,
+      videoRoomLink,
       patientName,
       patientEmail,
       patientPhoneNumber,

@@ -11,6 +11,7 @@ import {
   Upload,
   UserRound,
   UserRoundPen,
+  Video,
   X
 } from 'lucide-react';
 
@@ -322,17 +323,26 @@ function PatientDashboard({ session }) {
                     </p>
                     <div className="mt-1 flex items-center justify-between gap-2">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">Status: {item.status}</p>
-                      {item.status !== 'cancelled' ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => cancelAppointment(item._id)}
-                          disabled={loading}
-                        >
-                          Cancel
-                        </Button>
-                      ) : null}
+                      <div className="flex items-center gap-2">
+                        {item.appointmentType === 'video' && item.videoRoomLink && item.status !== 'cancelled' ? (
+                          <Button asChild type="button" size="sm" variant="secondary">
+                            <a href={item.videoRoomLink} target="_blank" rel="noreferrer">
+                              <Video size={14} /> Join Call
+                            </a>
+                          </Button>
+                        ) : null}
+                        {item.status !== 'cancelled' ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => cancelAppointment(item._id)}
+                            disabled={loading}
+                          >
+                            Cancel
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 ))}

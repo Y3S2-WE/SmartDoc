@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -25,8 +26,51 @@ app.get('/', (req, res) => {
     message: 'Telemedicine Service - SmartDoc Healthcare Platform',
     version: '1.0.0',
     endpoints: {
-      health: '/health'
+      health: '/health',
+      createSession: '/api/telemedicine/sessions'
     }
+  });
+});
+
+const createRoomName = ({ appointmentNumber, appointmentDate, appointmentTimeSlot, patientAuthUserId, doctorAuthUserId }) => {
+  const seed = `${appointmentNumber}|${appointmentDate}|${appointmentTimeSlot}|${patientAuthUserId}|${doctorAuthUserId}`;
+  const digest = crypto
+    .createHmac('sha256', process.env.TELEMEDICINE_ROOM_SECRET || process.env.JWT_SECRET || 'smartdoc-room-secret')
+    .update(seed)
+    .digest('hex')
+    .slice(0, 14);
+
+  return `smartdoc-${appointmentNumber}-${digest}`;
+};
+
+app.post('/api/telemedicine/sessions', (req, res) => {
+  const {
+    appointmentNumber,
+    appointmentDate,
+    appointmentTimeSlot,
+    patientAuthUserId,
+    doctorAuthUserId
+  } = req.body;
+
+  if (!appointmentNumber || !appointmentDate || !appointmentTimeSlot || !patientAuthUserId || !doctorAuthUserId) {
+    return res.status(400).json({ message: 'Missing session payload fields' });
+  }
+
+  const roomName = createRoomName({
+    appointmentNumber,
+    appointmentDate,
+    appointmentTimeSlot,
+    patientAuthUserId,
+    doctorAuthUserId
+  });
+
+  const jitsiBaseUrl = (process.env.JITSI_BASE_URL || 'https://meet.jit.si').replace(/\/$/, '');
+  const roomLink = `${jitsiBaseUrl}/${roomName}`;
+
+  return res.status(201).json({
+    provider: 'jitsi-meet',
+    roomName,
+    roomLink
   });
 });
 
