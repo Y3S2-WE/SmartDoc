@@ -6,6 +6,8 @@ const appointmentSchema = new mongoose.Schema(
     patientAuthUserId: { type: String, required: true, index: true },
     doctorAuthUserId: { type: String, required: true, index: true },
     doctorName: { type: String, trim: true, required: true },
+    doctorEmail: { type: String, trim: true, lowercase: true, default: '' },
+    doctorPhoneNumber: { type: String, trim: true, default: '' },
     specialization: { type: String, trim: true, default: '' },
     hospitalOrClinicName: { type: String, trim: true, default: '' },
     doctorProfilePhoto: { type: String, trim: true, default: '' },

@@ -2,6 +2,8 @@ const Appointment = require('../models/Appointment');
 const Counter = require('../models/Counter');
 const axios = require('axios');
 
+const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006/api/notifications';
+
 const getNextAppointmentNumber = async () => {
   const counter = await Counter.findOneAndUpdate(
     { _id: 'appointment_number' },
@@ -27,6 +29,17 @@ const createTelemedicineRoom = async ({ appointmentNumber, appointmentDate, appo
     videoRoomName: response.data.roomName || '',
     videoRoomLink: response.data.roomLink || ''
   };
+};
+
+const notifyAppointmentEvent = async (type, appointment) => {
+  const endpoint = type === 'cancelled' ? 'appointment/cancelled' : 'appointment/booked';
+
+  try {
+    await axios.post(`${notificationServiceUrl}/${endpoint}`, { appointment });
+  } catch (error) {
+    const detail = error.response?.data?.message || error.message;
+    console.warn(`Notification service failed (${type}): ${detail}`);
+  }
 };
 
 const bookAppointment = async (req, res, next) => {
@@ -79,6 +92,8 @@ const bookAppointment = async (req, res, next) => {
       patientAuthUserId: req.user.userId,
       doctorAuthUserId,
       doctorName: doctorName || 'Doctor',
+      doctorEmail: req.body.doctorEmail || '',
+      doctorPhoneNumber: req.body.doctorPhoneNumber || '',
       specialization: specialization || '',
       hospitalOrClinicName: hospitalOrClinicName || '',
       doctorProfilePhoto: doctorProfilePhoto || '',
@@ -93,6 +108,8 @@ const bookAppointment = async (req, res, next) => {
       patientPhoneNumber,
       patientAddress: patientAddress || ''
     });
+
+    await notifyAppointmentEvent('booked', appointment.toObject());
 
     res.status(201).json({ message: 'Appointment booked successfully', appointment });
   } catch (error) {
@@ -146,6 +163,8 @@ const cancelMyPatientAppointment = async (req, res, next) => {
 
     appointment.status = 'cancelled';
     await appointment.save();
+
+    await notifyAppointmentEvent('cancelled', appointment.toObject());
 
     res.status(200).json({ message: 'Appointment cancelled successfully', appointment });
   } catch (error) {

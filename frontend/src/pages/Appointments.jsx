@@ -122,6 +122,8 @@ function AppointmentsPage({ session }) {
 		const checkoutDraft = {
 			doctorAuthUserId: selectedDoctor._id,
 			doctorName: selectedDoctor.fullName,
+			doctorEmail: selectedDoctor.email || '',
+			doctorPhoneNumber: selectedDoctor.phoneNumber || '',
 			specialization: selectedDoctor.doctorProfile?.specialization || selectedDoctorProfile.specialization || '',
 			hospitalOrClinicName:
 				selectedDoctor.doctorProfile?.hospitalOrClinicName || selectedDoctorProfile.hospitalOrClinicName || '',
