@@ -1,4 +1,6 @@
 const { validationResult } = require('express-validator');
+const http = require('http');
+const https = require('https');
 
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
@@ -32,6 +34,73 @@ const checkValidation = (req) => {
     throw error;
   }
 };
+
+const toSafeUser = (userDoc) => ({
+  id: userDoc._id,
+  fullName: userDoc.fullName,
+  email: userDoc.email,
+  phoneNumber: userDoc.phoneNumber,
+  role: userDoc.role,
+  patientProfile: userDoc.patientProfile,
+  doctorProfile: userDoc.doctorProfile,
+  isActive: userDoc.isActive,
+  createdAt: userDoc.createdAt,
+  updatedAt: userDoc.updatedAt
+});
+
+const fetchJsonFromUrl = (targetUrl, headers = {}) =>
+  new Promise((resolve, reject) => {
+    const parsedUrl = new URL(targetUrl);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+
+    const request = client.request(
+      {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+        path: `${parsedUrl.pathname}${parsedUrl.search}`,
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          ...headers
+        }
+      },
+      (response) => {
+        let rawData = '';
+
+        response.on('data', (chunk) => {
+          rawData += chunk;
+        });
+
+        response.on('end', () => {
+          let payload = {};
+
+          if (rawData) {
+            try {
+              payload = JSON.parse(rawData);
+            } catch (error) {
+              payload = { raw: rawData };
+            }
+          }
+
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            return resolve(payload);
+          }
+
+          const fetchError = new Error(payload.message || `Upstream request failed with status ${response.statusCode}`);
+          fetchError.statusCode = response.statusCode;
+          fetchError.payload = payload;
+          return reject(fetchError);
+        });
+      }
+    );
+
+    request.setTimeout(6000, () => {
+      request.destroy(new Error('Upstream request timeout'));
+    });
+
+    request.on('error', reject);
+    request.end();
+  });
 
 const buildAuthResponse = (userDoc) => {
   const token = generateToken({ userId: userDoc._id, role: userDoc.role });
@@ -215,8 +284,205 @@ const getCurrentUser = async (req, res, next) => {
 
 const listUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    const filters = {};
+
+    if (req.query.role) {
+      filters.role = req.query.role;
+    }
+
+    if (req.query.isActive !== undefined) {
+      filters.isActive = req.query.isActive === 'true';
+    }
+
+    if (req.query.search) {
+      const pattern = String(req.query.search).trim();
+      if (pattern) {
+        filters.$or = [
+          { fullName: { $regex: pattern, $options: 'i' } },
+          { email: { $regex: pattern, $options: 'i' } },
+          { phoneNumber: { $regex: pattern, $options: 'i' } }
+        ];
+      }
+    }
+
+    const users = await User.find(filters).select('-password').sort({ createdAt: -1 });
     res.status(200).json({ count: users.length, users });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateUserAccountStatus = async (req, res, next) => {
+  try {
+    checkValidation(req);
+
+    const { isActive } = req.body;
+    const user = await User.findById(req.params.userId);
+
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    if (String(user._id) === String(req.user._id) && isActive === false) {
+      res.status(400);
+      throw new Error('Admin cannot deactivate the currently logged-in account');
+    }
+
+    user.isActive = isActive;
+    await user.save();
+
+    res.status(200).json({
+      message: isActive ? 'User account activated successfully' : 'User account deactivated successfully',
+      user: toSafeUser(user)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateUserRole = async (req, res, next) => {
+  try {
+    checkValidation(req);
+
+    const { role } = req.body;
+    const user = await User.findById(req.params.userId);
+
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    if (String(user._id) === String(req.user._id) && role !== ROLES.ADMIN) {
+      res.status(400);
+      throw new Error('Admin cannot change own role to non-admin');
+    }
+
+    user.role = role;
+
+    if (role === ROLES.DOCTOR && !user.doctorProfile) {
+      user.doctorProfile = {
+        isVerified: false,
+        verificationStatus: 'pending'
+      };
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      message: 'User role updated successfully',
+      user: toSafeUser(user)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const removeUserAccount = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId);
+
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    if (String(user._id) === String(req.user._id)) {
+      res.status(400);
+      throw new Error('Admin cannot delete the currently logged-in account');
+    }
+
+    await User.deleteOne({ _id: user._id });
+
+    res.status(200).json({
+      message: 'User account removed successfully',
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAdminPlatformOverview = async (req, res, next) => {
+  try {
+    const [
+      totalUsers,
+      activeUsers,
+      patientUsers,
+      doctorUsers,
+      adminUsers,
+      pendingDoctorVerifications,
+      approvedDoctorVerifications,
+      rejectedDoctorVerifications,
+      recentUsers
+    ] = await Promise.all([
+      User.countDocuments({}),
+      User.countDocuments({ isActive: true }),
+      User.countDocuments({ role: ROLES.PATIENT }),
+      User.countDocuments({ role: ROLES.DOCTOR }),
+      User.countDocuments({ role: ROLES.ADMIN }),
+      User.countDocuments({ role: ROLES.DOCTOR, 'doctorProfile.verificationStatus': 'pending' }),
+      User.countDocuments({ role: ROLES.DOCTOR, 'doctorProfile.verificationStatus': 'approved' }),
+      User.countDocuments({ role: ROLES.DOCTOR, 'doctorProfile.verificationStatus': 'rejected' }),
+      User.find({}).select('-password').sort({ createdAt: -1 }).limit(5)
+    ]);
+
+    res.status(200).json({
+      overview: {
+        users: {
+          total: totalUsers,
+          active: activeUsers,
+          inactive: totalUsers - activeUsers,
+          byRole: {
+            patient: patientUsers,
+            doctor: doctorUsers,
+            admin: adminUsers
+          }
+        },
+        doctorVerification: {
+          pending: pendingDoctorVerifications,
+          approved: approvedDoctorVerifications,
+          rejected: rejectedDoctorVerifications
+        }
+      },
+      recentUsers
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAdminFinancialTransactions = async (req, res, next) => {
+  try {
+    const paymentServiceBaseUrl = process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005';
+    const endpoint = process.env.PAYMENT_SERVICE_ADMIN_TRANSACTIONS_URL || `${paymentServiceBaseUrl}/api/payments/admin/transactions`;
+
+    try {
+      const payload = await fetchJsonFromUrl(endpoint, {
+        Authorization: req.headers.authorization || ''
+      });
+
+      return res.status(200).json({
+        available: true,
+        source: endpoint,
+        ...payload
+      });
+    } catch (upstreamError) {
+      return res.status(200).json({
+        available: false,
+        source: endpoint,
+        message:
+          upstreamError.statusCode === 404
+            ? 'Payment service transaction endpoint is not implemented yet'
+            : 'Unable to fetch financial transactions from payment service',
+        upstreamStatus: upstreamError.statusCode || 500
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -277,6 +543,11 @@ module.exports = {
   login,
   getCurrentUser,
   listUsers,
+  updateUserAccountStatus,
+  updateUserRole,
+  removeUserAccount,
+  getAdminPlatformOverview,
+  getAdminFinancialTransactions,
   listApprovedDoctors,
   verifyDoctor
 };
