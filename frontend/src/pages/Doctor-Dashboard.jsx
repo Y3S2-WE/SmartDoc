@@ -95,7 +95,8 @@ function DoctorDashboard({ session }) {
   const [bookedAppointments, setBookedAppointments] = useState([]);
   const [bookedAppointmentDateFilter, setBookedAppointmentDateFilter] = useState('');
   const [newAvailabilityDate, setNewAvailabilityDate] = useState('');
-  const [newAvailabilitySlot, setNewAvailabilitySlot] = useState('');
+  const [newAvailabilityStartTime, setNewAvailabilityStartTime] = useState('');
+  const [newAvailabilityEndTime, setNewAvailabilityEndTime] = useState('');
 
   const authHeader = useMemo(() => ({ Authorization: `Bearer ${session.token}` }), [session.token]);
 
@@ -283,11 +284,17 @@ function DoctorDashboard({ session }) {
   };
 
   const addAvailabilitySlot = (date) => {
-    const slot = newAvailabilitySlot.trim();
-    if (!slot) {
-      setFeedback('Add a time slot (example: 09:00-09:30).');
+    if (!newAvailabilityStartTime || !newAvailabilityEndTime) {
+      setFeedback('Select both start and end times.');
       return;
     }
+
+    if (newAvailabilityStartTime >= newAvailabilityEndTime) {
+      setFeedback('End time must be later than start time.');
+      return;
+    }
+
+    const slot = `${newAvailabilityStartTime}-${newAvailabilityEndTime}`;
 
     setProfile((prev) => ({
       ...prev,
@@ -307,7 +314,8 @@ function DoctorDashboard({ session }) {
       })
     }));
 
-    setNewAvailabilitySlot('');
+    setNewAvailabilityStartTime('');
+    setNewAvailabilityEndTime('');
     setFeedback('');
   };
 
@@ -605,9 +613,14 @@ function DoctorDashboard({ session }) {
 
                         <div className="mb-2 flex flex-col gap-2 md:flex-row">
                           <Input
-                            placeholder="Time slot (example: 09:00-09:30)"
-                            value={newAvailabilitySlot}
-                            onChange={(e) => setNewAvailabilitySlot(e.target.value)}
+                            type="time"
+                            value={newAvailabilityStartTime}
+                            onChange={(e) => setNewAvailabilityStartTime(e.target.value)}
+                          />
+                          <Input
+                            type="time"
+                            value={newAvailabilityEndTime}
+                            onChange={(e) => setNewAvailabilityEndTime(e.target.value)}
                           />
                           <Button type="button" variant="outline" onClick={() => addAvailabilitySlot(entry.date)}>
                             <Plus size={14} /> Add Slot
