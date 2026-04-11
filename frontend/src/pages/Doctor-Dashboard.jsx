@@ -98,6 +98,12 @@ function DoctorDashboard({ session }) {
   const [newAvailabilityStartTime, setNewAvailabilityStartTime] = useState('');
   const [newAvailabilityEndTime, setNewAvailabilityEndTime] = useState('');
 
+  const minSelectableDate = useMemo(() => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().split('T')[0];
+  }, []);
+
   const authHeader = useMemo(() => ({ Authorization: `Bearer ${session.token}` }), [session.token]);
 
   const parseQualifications = (value) => {
@@ -259,6 +265,11 @@ function DoctorDashboard({ session }) {
     const date = newAvailabilityDate.trim();
     if (!date) {
       setFeedback('Select a date before adding availability.');
+      return;
+    }
+
+    if (date < minSelectableDate) {
+      setFeedback('Past dates cannot be added to availability schedule.');
       return;
     }
 
@@ -591,6 +602,7 @@ function DoctorDashboard({ session }) {
                   <Input
                     type="date"
                     value={newAvailabilityDate}
+                    min={minSelectableDate}
                     onChange={(e) => setNewAvailabilityDate(e.target.value)}
                   />
                   <Button type="button" variant="secondary" onClick={addAvailabilityDate}>

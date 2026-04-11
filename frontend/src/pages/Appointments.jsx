@@ -20,6 +20,11 @@ const initialForm = {
 
 function AppointmentsPage({ session }) {
 	const navigate = useNavigate();
+	const minSelectableDate = useMemo(() => {
+		const now = new Date();
+		const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+		return local.toISOString().split('T')[0];
+	}, []);
 
 	const [approvedDoctors, setApprovedDoctors] = useState([]);
 	const [doctorProfiles, setDoctorProfiles] = useState({});
@@ -96,9 +101,22 @@ function AppointmentsPage({ session }) {
 	const selectedDoctor = approvedDoctors.find((doctor) => doctor._id === selectedDoctorId) || null;
 	const selectedDoctorProfile = selectedDoctor ? doctorProfiles[selectedDoctor._id] || {} : null;
 
-	const selectedAvailability = selectedDoctorProfile?.availabilitySchedule || [];
+	const selectedAvailability = (selectedDoctorProfile?.availabilitySchedule || []).filter(
+		(item) => item?.date && item.date >= minSelectableDate
+	);
 	const selectedDateAvailability = selectedAvailability.find((item) => item.date === form.appointmentDate);
 	const availableSlots = selectedDateAvailability?.timeSlots || [];
+
+	useEffect(() => {
+		if (!form.appointmentDate) {
+			return;
+		}
+
+		const isAvailableDate = selectedAvailability.some((item) => item.date === form.appointmentDate);
+		if (!isAvailableDate) {
+			setForm((prev) => ({ ...prev, appointmentDate: '', appointmentTimeSlot: '' }));
+		}
+	}, [form.appointmentDate, selectedAvailability]);
 
 	const handleBookNow = (doctorId) => {
 		setSelectedDoctorId(doctorId);
@@ -116,6 +134,11 @@ function AppointmentsPage({ session }) {
 
 		if (!form.appointmentDate || !form.appointmentTimeSlot) {
 			setFeedback('Please pick available date and time slot.');
+			return;
+		}
+
+		if (form.appointmentDate < minSelectableDate) {
+			setFeedback('Past dates are not available for booking.');
 			return;
 		}
 
