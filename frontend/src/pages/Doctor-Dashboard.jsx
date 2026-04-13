@@ -91,8 +91,7 @@ function DoctorDashboard({ session }) {
   const [reportsLoaded, setReportsLoaded] = useState(false);
   const [bookedAppointments, setBookedAppointments] = useState([]);
   const [dateFilter, setDateFilter] = useState('');
-  const [newAvailabilityDate, setNewAvailabilityDate] = useState('');
-  const [newAvailabilitySlot, setNewAvailabilitySlot] = useState('');
+  const [avForm, setAvForm] = useState({ date: '', start: '', end: '', interval: 30 });
 
   const authHeader = useMemo(() => ({ Authorization: `Bearer ${session.token}` }), [session.token]);
 
@@ -231,31 +230,61 @@ function DoctorDashboard({ session }) {
     }));
   };
 
-  const addAvailabilityDate = () => {
-    const date = newAvailabilityDate.trim();
-    if (!date) { setFeedback('Select a date first.'); return; }
-    if (profile.availabilitySchedule.some((item) => item.date === date)) { setFeedback('Date already added.'); return; }
-    setProfile((prev) => ({ ...prev, availabilitySchedule: [...prev.availabilitySchedule, { date, timeSlots: [] }] }));
-    setNewAvailabilityDate('');
+  const toMins = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+
+  const fmt12 = (totalMins) => {
+    const h = Math.floor(totalMins / 60) % 24;
+    const m = totalMins % 60;
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+  };
+
+  const buildSlots = (start, end, interval) => {
+    const s = toMins(start);
+    const e = toMins(end);
+    if (e <= s) return [];
+    const out = [];
+    for (let t = s; t + interval <= e; t += interval) {
+      out.push(`${fmt12(t)} - ${fmt12(t + interval)}`);
+    }
+    return out;
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+    });
+  };
+
+  const addAvailabilitySlots = () => {
+    const { date, start, end, interval } = avForm;
+    if (!date) { setFeedback('Select a date.'); return; }
+    if (!start || !end) { setFeedback('Set both start and end time.'); return; }
+    if (toMins(end) <= toMins(start)) { setFeedback('End time must be after start time.'); return; }
+    const generated = buildSlots(start, end, interval);
+    if (generated.length === 0) { setFeedback('No slots fit in the selected range.'); return; }
+    setProfile((prev) => {
+      const exists = prev.availabilitySchedule.some((item) => item.date === date);
+      if (exists) {
+        return {
+          ...prev,
+          availabilitySchedule: prev.availabilitySchedule.map((item) => {
+            if (item.date !== date) return item;
+            const existingSet = new Set(item.timeSlots);
+            return { ...item, timeSlots: [...item.timeSlots, ...generated.filter((s) => !existingSet.has(s))] };
+          })
+        };
+      }
+      return { ...prev, availabilitySchedule: [...prev.availabilitySchedule, { date, timeSlots: generated }] };
+    });
+    setAvForm((prev) => ({ ...prev, date: '', start: '', end: '' }));
     setFeedback('');
   };
 
   const removeAvailabilityDate = (date) => {
     setProfile((prev) => ({ ...prev, availabilitySchedule: prev.availabilitySchedule.filter((item) => item.date !== date) }));
-  };
-
-  const addAvailabilitySlot = (date) => {
-    const slot = newAvailabilitySlot.trim();
-    if (!slot) { setFeedback('Enter a time slot e.g. 09:00–09:30.'); return; }
-    setProfile((prev) => ({
-      ...prev,
-      availabilitySchedule: prev.availabilitySchedule.map((item) => {
-        if (item.date !== date || item.timeSlots.includes(slot)) return item;
-        return { ...item, timeSlots: [...item.timeSlots, slot] };
-      })
-    }));
-    setNewAvailabilitySlot('');
-    setFeedback('');
   };
 
   const removeAvailabilitySlot = (date, slot) => {
@@ -265,6 +294,24 @@ function DoctorDashboard({ session }) {
         item.date !== date ? item : { ...item, timeSlots: item.timeSlots.filter((s) => s !== slot) }
       )
     }));
+  };
+
+  const saveAvailability = async () => {
+    setLoading(true);
+    setFeedback('');
+    try {
+      const response = await axios.put(
+        `${DOCTOR_API_URL}/me/availability`,
+        { availabilitySchedule: profile.availabilitySchedule },
+        { headers: authHeader }
+      );
+      setFeedback(response.data.message || 'Availability saved.');
+      await loadDoctorDashboard();
+    } catch (error) {
+      setFeedback(error.response?.data?.message || 'Failed to save availability.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredAppointments = dateFilter
@@ -587,80 +634,163 @@ function DoctorDashboard({ session }) {
 
       {/* ── Tab: Availability ── */}
       {activeTab === 'availability' && (
-        <div className="portal-shell space-y-5">
-          <div className="rounded-2xl border border-lake/10 bg-white p-5 shadow-sm">
-            <h3 className="mb-4 text-sm font-bold text-lake">Add Availability Date</h3>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Input
-                type="date"
-                value={newAvailabilityDate}
-                onChange={(e) => setNewAvailabilityDate(e.target.value)}
-                className="sm:w-48"
-              />
-              <Button variant="secondary" onClick={addAvailabilityDate}>
-                <Plus size={14} /> Add Date
-              </Button>
+        <div className="space-y-6">
+
+          {/* ── Add form ── */}
+          <div className="overflow-hidden rounded-2xl border border-lake/15 bg-white shadow-sm">
+            <div className="border-b border-lake/10 bg-gradient-to-r from-lake/5 to-transparent px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-lake/10">
+                  <CalendarDays size={17} className="text-lake" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-ink">Add Availability</p>
+                  <p className="text-xs text-ink/50">Pick a date, time range and slot interval</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink/50">Date</label>
+                  <input
+                    type="date"
+                    value={avForm.date}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setAvForm({ ...avForm, date: e.target.value })}
+                    className="h-10 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/10"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink/50">Start Time</label>
+                  <input
+                    type="time"
+                    value={avForm.start}
+                    onChange={(e) => setAvForm({ ...avForm, start: e.target.value })}
+                    className="h-10 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/10"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-ink/50">End Time</label>
+                  <input
+                    type="time"
+                    value={avForm.end}
+                    onChange={(e) => setAvForm({ ...avForm, end: e.target.value })}
+                    className="h-10 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/10"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-ink/50">Interval</span>
+                  <div className="flex gap-1.5">
+                    {[15, 30, 45, 60].map((min) => (
+                      <button
+                        key={min}
+                        type="button"
+                        onClick={() => setAvForm({ ...avForm, interval: min })}
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+                          avForm.interval === min
+                            ? 'border-lake bg-lake text-white shadow-sm'
+                            : 'border-lake/20 bg-white text-ink/55 hover:border-lake/50 hover:text-lake'
+                        }`}
+                      >
+                        {min} min
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button onClick={addAvailabilitySlots} disabled={loading} className="gap-2 px-6">
+                  <Plus size={15} /> Add Slots
+                </Button>
+              </div>
+
+              {/* Preview */}
+              {avForm.date && avForm.start && avForm.end && toMins(avForm.end) > toMins(avForm.start) && (
+                <div className="rounded-xl border border-lake/10 bg-lake/3 px-4 py-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink/50">
+                    Preview — {buildSlots(avForm.start, avForm.end, avForm.interval).length} slot(s) for {formatDate(avForm.date)}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {buildSlots(avForm.start, avForm.end, avForm.interval).map((s) => (
+                      <span key={s} className="rounded-lg border border-lake/20 bg-white px-2.5 py-1 text-[11px] font-semibold text-lake">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* ── Schedule cards ── */}
           {profile.availabilitySchedule.length === 0 ? (
-            <EmptyState icon={CalendarDays} message="No availability dates added yet." />
+            <EmptyState icon={CalendarDays} message="No availability added yet. Fill the form above to get started." />
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {profile.availabilitySchedule.map((entry) => (
-                <div key={entry.date} className="rounded-2xl border border-lake/10 bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="font-bold text-lake">{entry.date}</p>
-                    <button
-                      type="button"
-                      onClick={() => removeAvailabilityDate(entry.date)}
-                      className="rounded-lg p-1 text-ember/70 transition hover:bg-ember/10 hover:text-ember"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-
-                  <div className="mb-3 flex gap-2">
-                    <Input
-                      placeholder="e.g. 09:00–09:30"
-                      value={newAvailabilitySlot}
-                      onChange={(e) => setNewAvailabilitySlot(e.target.value)}
-                    />
-                    <Button size="sm" variant="outline" onClick={() => addAvailabilitySlot(entry.date)}>
-                      <Plus size={13} />
-                    </Button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {entry.timeSlots.length === 0 ? (
-                      <p className="text-xs text-ink/50">No time slots yet.</p>
-                    ) : (
-                      entry.timeSlots.map((slot) => (
-                        <span
-                          key={`${entry.date}-${slot}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-lake/20 bg-lake/5 px-2.5 py-1 text-xs font-semibold text-lake"
-                        >
-                          {slot}
-                          <button
-                            type="button"
-                            onClick={() => removeAvailabilitySlot(entry.date, slot)}
-                            className="rounded p-0.5 transition hover:bg-lake/20"
-                          >
-                            <X size={11} />
-                          </button>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {profile.availabilitySchedule
+                .slice()
+                .sort((a, b) => a.date.localeCompare(b.date))
+                .map((entry) => (
+                  <div key={entry.date} className="flex flex-col overflow-hidden rounded-2xl border border-lake/10 bg-white shadow-sm">
+                    <div className="flex items-center justify-between bg-gradient-to-r from-lake to-teal-600 px-4 py-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60">Schedule</p>
+                        <p className="text-sm font-bold text-white">{formatDate(entry.date)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-lg bg-white/20 px-2 py-0.5 text-[11px] font-bold text-white">
+                          {entry.timeSlots.length} slot{entry.timeSlots.length !== 1 ? 's' : ''}
                         </span>
-                      ))
-                    )}
+                        <button
+                          type="button"
+                          onClick={() => removeAvailabilityDate(entry.date)}
+                          className="rounded-lg p-1 text-white/60 transition hover:bg-white/20 hover:text-white"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 p-4">
+                      {entry.timeSlots.length === 0 ? (
+                        <p className="text-xs text-ink/40 italic">No slots yet.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {entry.timeSlots.map((slot) => (
+                            <span
+                              key={`${entry.date}-${slot}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-lake/20 bg-lake/5 px-2.5 py-1 text-[11px] font-semibold text-lake transition hover:bg-lake/10"
+                            >
+                              {slot}
+                              <button
+                                type="button"
+                                onClick={() => removeAvailabilitySlot(entry.date, slot)}
+                                className="ml-0.5 rounded p-0.5 text-lake/40 transition hover:bg-lake/20 hover:text-ember"
+                              >
+                                <X size={10} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
 
-          <Button onClick={saveProfile} disabled={loading} className="w-full sm:w-auto">
-            {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            {loading ? 'Saving…' : 'Save Availability'}
-          </Button>
+          {/* ── Save button ── */}
+          {profile.availabilitySchedule.length > 0 && (
+            <div className="flex justify-end border-t border-lake/10 pt-4">
+              <Button onClick={saveAvailability} disabled={loading} className="gap-2 px-8">
+                {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                {loading ? 'Saving…' : 'Save Availability'}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
