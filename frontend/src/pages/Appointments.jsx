@@ -210,27 +210,34 @@ function AppointmentsPage({ session }) {
 									const photo = doctor.doctorProfile?.profilePhoto || profile.profilePhoto || '';
 
 									return (
-										<div key={doctor._id} className="rounded-xl border border-lake/10 bg-white p-3">
-											<div className="flex items-center justify-between gap-3">
-												<div className="flex items-center gap-3">
+										<div
+											key={doctor._id}
+											className="rounded-2xl border border-lake/15 bg-white p-4 shadow-sm transition hover:border-lake/25 hover:shadow-md"
+										>
+											<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+												<div className="flex items-start gap-4">
 													{photo ? (
-														<img src={photo} alt="Doctor" className="h-11 w-11 rounded-xl object-cover ring-1 ring-lake/20" />
+														<img src={photo} alt="Doctor" className="h-24 w-24 rounded-2xl object-cover ring-2 ring-lake/20" />
 													) : (
-														<div className="flex h-11 w-11 items-center justify-center rounded-xl bg-lake text-xs font-bold text-white">
+														<div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-lake text-lg font-bold text-white">
 															{(doctor.fullName || 'D').slice(0, 2).toUpperCase()}
 														</div>
 													)}
-													<div>
-														<p className="font-semibold text-lake">{doctor.fullName}</p>
-														<p className="text-xs text-ink/70">{doctor.doctorProfile?.specialization || profile.specialization || 'Specialization not set'}</p>
-														<p className="text-xs text-ink/65">{doctor.doctorProfile?.hospitalOrClinicName || profile.hospitalOrClinicName || 'Hospital not set'}</p>
-														<p className="text-xs font-semibold text-ember">
+													<div className="space-y-1.5">
+														<p className="text-base font-bold tracking-tight text-lake">{doctor.fullName}</p>
+														<p className="inline-flex rounded-full bg-lake/10 px-2.5 py-1 text-xs font-semibold text-lake">
+															{doctor.doctorProfile?.specialization || profile.specialization || 'Specialization not set'}
+														</p>
+														<p className="text-sm text-ink/75">{doctor.doctorProfile?.hospitalOrClinicName || profile.hospitalOrClinicName || 'Hospital not set'}</p>
+														<p className="text-sm font-semibold text-ember">
 															Fee: LKR {doctor.doctorProfile?.consultationFee || profile.consultationFee || 0}
 														</p>
 													</div>
 												</div>
 
-												<Button onClick={() => handleBookNow(doctor._id)}>Book Now</Button>
+												<Button className="sm:min-w-[130px]" onClick={() => handleBookNow(doctor._id)}>
+													Book Now
+												</Button>
 											</div>
 										</div>
 									);
@@ -251,13 +258,33 @@ function AppointmentsPage({ session }) {
 							<p className="text-sm text-ink/65">Select a doctor from the left list to continue booking.</p>
 						) : (
 							<>
-								<div className="mb-4 rounded-xl border border-lake/15 bg-white p-3">
-									<p className="text-sm font-semibold text-lake">{selectedDoctor.fullName}</p>
-									<p className="text-xs text-ink/70">{selectedDoctor.doctorProfile?.specialization || selectedDoctorProfile.specialization || 'Specialization not set'}</p>
-									<p className="text-xs text-ink/70">{selectedDoctor.doctorProfile?.hospitalOrClinicName || selectedDoctorProfile.hospitalOrClinicName || 'Hospital not set'}</p>
-									<p className="text-xs font-semibold text-ember">
-										Channelling Fee: LKR {selectedDoctor.doctorProfile?.consultationFee || selectedDoctorProfile.consultationFee || 0}
-									</p>
+								<div className="mb-4 rounded-2xl border border-lake/20 bg-white p-4 shadow-sm">
+									<div className="flex items-start gap-4">
+										{selectedDoctor.doctorProfile?.profilePhoto || selectedDoctorProfile.profilePhoto ? (
+											<img
+												src={selectedDoctor.doctorProfile?.profilePhoto || selectedDoctorProfile.profilePhoto}
+												alt="Selected doctor"
+												className="h-24 w-24 rounded-2xl object-cover ring-2 ring-lake/20"
+											/>
+										) : (
+											<div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-lake text-lg font-bold text-white">
+												{(selectedDoctor.fullName || 'D').slice(0, 2).toUpperCase()}
+											</div>
+										)}
+
+										<div className="space-y-1.5">
+											<p className="text-base font-bold tracking-tight text-lake">{selectedDoctor.fullName}</p>
+											<p className="inline-flex rounded-full bg-lake/10 px-2.5 py-1 text-xs font-semibold text-lake">
+												{selectedDoctor.doctorProfile?.specialization || selectedDoctorProfile.specialization || 'Specialization not set'}
+											</p>
+											<p className="text-sm text-ink/75">
+												{selectedDoctor.doctorProfile?.hospitalOrClinicName || selectedDoctorProfile.hospitalOrClinicName || 'Hospital not set'}
+											</p>
+											<p className="text-sm font-semibold text-ember">
+												Channelling Fee: LKR {selectedDoctor.doctorProfile?.consultationFee || selectedDoctorProfile.consultationFee || 0}
+											</p>
+										</div>
+									</div>
 								</div>
 
 								<form onSubmit={proceedToCheckout} className="space-y-3">
