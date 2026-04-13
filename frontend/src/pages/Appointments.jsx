@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { CalendarCheck2, Search, Stethoscope, Video } from 'lucide-react';
 
-import { AUTH_API_URL, DOCTOR_API_URL } from '../lib/api';
+import { AUTH_API_URL, DOCTOR_API_URL, PATIENT_API_URL } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -17,6 +17,9 @@ const initialForm = {
 	appointmentDate: '',
 	appointmentTimeSlot: ''
 };
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phoneRegex = /^(0\d{9}|\+94\d{9})$/;
 
 function AppointmentsPage({ session }) {
 	const navigate = useNavigate();
@@ -37,11 +40,21 @@ function AppointmentsPage({ session }) {
 		...initialForm,
 		patientName: session.user.fullName || '',
 		patientEmail: session.user.email || '',
-		patientPhoneNumber: session.user.phoneNumber || ''
+		patientPhoneNumber: session.user.phoneNumber || '',
+		patientAddress: session.user.addressLine || session.user.address || session.user.patientProfile?.addressLine || ''
 	});
 
 	const [loading, setLoading] = useState(false);
 	const [feedback, setFeedback] = useState('');
+
+	const handleSearchNameChange = (event) => {
+		const value = event.target.value;
+
+		// Allow only letters and spaces for doctor name search.
+		if (/^[A-Za-z\s]*$/.test(value)) {
+			setSearchName(value);
+		}
+	};
 
 	useEffect(() => {
 		const loadApprovedDoctors = async () => {
@@ -74,6 +87,26 @@ function AppointmentsPage({ session }) {
 
 		loadApprovedDoctors();
 	}, []);
+
+	useEffect(() => {
+		const loadPatientAddress = async () => {
+			try {
+				const response = await axios.get(`${PATIENT_API_URL}/me/profile`, {
+					headers: { Authorization: `Bearer ${session.token}` }
+				});
+				const profile = response.data.profile || {};
+				const address = profile.addressLine || '';
+
+				if (address) {
+					setForm((prev) => ({ ...prev, patientAddress: address }));
+				}
+			} catch {
+				// Keep session fallback address when profile request fails.
+			}
+		};
+
+		loadPatientAddress();
+	}, [session.token]);
 
 	const specializationOptions = useMemo(() => {
 		const values = approvedDoctors
@@ -127,6 +160,19 @@ function AppointmentsPage({ session }) {
 	const proceedToCheckout = (event) => {
 		event.preventDefault();
 
+		const normalizedEmail = form.patientEmail.trim();
+		const normalizedPhone = form.patientPhoneNumber.trim();
+
+		if (!normalizedEmail || !emailRegex.test(normalizedEmail)) {
+			setFeedback('Please enter a valid email address (example: name@email.com).');
+			return;
+		}
+
+		if (!normalizedPhone || !phoneRegex.test(normalizedPhone)) {
+			setFeedback('Please enter a valid phone number: 10 digits starting with 0 or +94 followed by 9 digits.');
+			return;
+		}
+
 		if (!selectedDoctor || !selectedDoctorProfile) {
 			setFeedback('Please select a doctor first.');
 			return;
@@ -156,8 +202,8 @@ function AppointmentsPage({ session }) {
 			appointmentDate: form.appointmentDate,
 			appointmentTimeSlot: form.appointmentTimeSlot,
 			patientName: form.patientName,
-			patientEmail: form.patientEmail,
-			patientPhoneNumber: form.patientPhoneNumber,
+			patientEmail: normalizedEmail,
+			patientPhoneNumber: normalizedPhone,
 			patientAddress: form.patientAddress
 		};
 
@@ -182,7 +228,7 @@ function AppointmentsPage({ session }) {
 					</CardHeader>
 					<CardContent className="space-y-3">
 						<div className="grid gap-2 md:grid-cols-2">
-							<Input placeholder="Search by doctor name" value={searchName} onChange={(e) => setSearchName(e.target.value)} />
+							<Input placeholder="Search by doctor name" value={searchName} onChange={handleSearchNameChange} />
 							<select
 								value={specializationFilter}
 								onChange={(e) => setSpecializationFilter(e.target.value)}
@@ -291,7 +337,7 @@ function AppointmentsPage({ session }) {
 									<div className="grid gap-3 md:grid-cols-2">
 										<Field label="Patient Name"><Input value={form.patientName} onChange={(e) => setForm({ ...form, patientName: e.target.value })} required /></Field>
 										<Field label="Email"><Input type="email" value={form.patientEmail} onChange={(e) => setForm({ ...form, patientEmail: e.target.value })} required /></Field>
-										<Field label="Tel Number"><Input value={form.patientPhoneNumber} onChange={(e) => setForm({ ...form, patientPhoneNumber: e.target.value })} required /></Field>
+										<Field label="Tel Number"><Input type="tel" placeholder="07XXXXXXXX or +947XXXXXXXX" value={form.patientPhoneNumber} onChange={(e) => setForm({ ...form, patientPhoneNumber: e.target.value })} pattern="^(0[0-9]{9}|\+94[0-9]{9})$" title="Use 10 digits starting with 0, or +94 followed by 9 digits." required /></Field>
 										<Field label="Address"><Input value={form.patientAddress} onChange={(e) => setForm({ ...form, patientAddress: e.target.value })} required /></Field>
 									</div>
 
