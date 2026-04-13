@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
-  CalendarDays,
   CalendarCheck2,
+  CalendarDays,
   ClipboardPlus,
   Eye,
   FileText,
+  Loader2,
   Plus,
-  Trash2,
   Save,
   Search,
   Stethoscope,
+  Trash2,
   UserPen,
   Video,
   X
@@ -21,50 +22,37 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 
+const TABS = [
+  { id: 'appointments', label: 'Appointments', icon: CalendarCheck2 },
+  { id: 'prescriptions', label: 'Prescriptions', icon: ClipboardPlus },
+  { id: 'reports', label: 'Patient Reports', icon: Eye },
+  { id: 'availability', label: 'Availability', icon: CalendarDays }
+];
+
 const initialProfile = {
-  fullName: '',
-  email: '',
-  phoneNumber: '',
-  profilePhoto: '',
-  medicalLicenseNumber: '',
-  specialization: '',
-  yearsOfExperience: '',
-  qualifications: '',
-  hospitalOrClinicName: '',
-  consultationFee: '',
-  clinicAddress: '',
-  city: '',
-  district: '',
-  bio: '',
-  availabilityNotes: '',
-  availabilitySchedule: []
+  fullName: '', email: '', phoneNumber: '', profilePhoto: '',
+  medicalLicenseNumber: '', specialization: '', yearsOfExperience: '',
+  qualifications: '', hospitalOrClinicName: '', consultationFee: '',
+  clinicAddress: '', city: '', district: '', bio: '',
+  availabilityNotes: '', availabilitySchedule: []
 };
 
 const initialPrescription = {
-  patientAuthUserId: '',
-  doctorName: '',
-  diagnosis: '',
-  medications: '',
-  dosageInstructions: '',
-  testsRecommended: '',
-  followUpDate: '',
-  templateName: '',
-  notes: ''
+  patientAuthUserId: '', doctorName: '', diagnosis: '', medications: '',
+  dosageInstructions: '', testsRecommended: '', followUpDate: '',
+  templateName: '', notes: ''
 };
 
 const prescriptionTemplates = [
   {
-    id: 'general-fever',
-    label: 'General Fever Care',
-    diagnosis: 'Viral fever',
-    medications: 'Paracetamol 500mg',
+    id: 'general-fever', label: 'General Fever Care',
+    diagnosis: 'Viral fever', medications: 'Paracetamol 500mg',
     dosageInstructions: '1 tablet every 8 hours after meals for 3 days',
     testsRecommended: 'CBC',
     notes: 'Hydrate well and rest. Return if fever persists above 3 days.'
   },
   {
-    id: 'upper-respiratory',
-    label: 'Upper Respiratory Infection',
+    id: 'upper-respiratory', label: 'Upper Respiratory Infection',
     diagnosis: 'Upper respiratory tract infection',
     medications: 'Cetirizine 10mg, Cough syrup',
     dosageInstructions: 'Cetirizine: 1 tablet at night for 5 days; Cough syrup: 10ml twice daily',
@@ -72,8 +60,7 @@ const prescriptionTemplates = [
     notes: 'Warm fluids advised. Seek urgent care for breathing difficulty.'
   },
   {
-    id: 'gastritis',
-    label: 'Acute Gastritis',
+    id: 'gastritis', label: 'Acute Gastritis',
     diagnosis: 'Acute gastritis',
     medications: 'Pantoprazole 40mg, Antacid suspension',
     dosageInstructions: 'Pantoprazole: once daily before breakfast for 14 days; Antacid as needed',
@@ -82,73 +69,78 @@ const prescriptionTemplates = [
   }
 ];
 
+const STATUS_STYLES = {
+  booked:    'bg-lake/10 text-lake',
+  confirmed: 'bg-mint/20 text-teal-700',
+  completed: 'bg-emerald-50 text-emerald-700',
+  cancelled: 'bg-ember/10 text-ember'
+};
+
 function DoctorDashboard({ session }) {
   const [profile, setProfile] = useState(initialProfile);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
+  const [activeTab, setActiveTab] = useState('appointments');
 
   const [prescriptionForm, setPrescriptionForm] = useState(initialPrescription);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [patientSearchId, setPatientSearchId] = useState('');
+  const [reportPatientFilter, setReportPatientFilter] = useState('');
   const [patientReports, setPatientReports] = useState([]);
+  const [reportsLoaded, setReportsLoaded] = useState(false);
   const [bookedAppointments, setBookedAppointments] = useState([]);
-  const [bookedAppointmentDateFilter, setBookedAppointmentDateFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
   const [newAvailabilityDate, setNewAvailabilityDate] = useState('');
   const [newAvailabilitySlot, setNewAvailabilitySlot] = useState('');
 
   const authHeader = useMemo(() => ({ Authorization: `Bearer ${session.token}` }), [session.token]);
 
   const parseQualifications = (value) => {
-    if (!value) {
-      return '';
-    }
-
-    if (Array.isArray(value)) {
-      return value.join(', ');
-    }
-
+    if (!value) return '';
+    if (Array.isArray(value)) return value.join(', ');
     return String(value);
   };
 
   const loadDoctorDashboard = async () => {
     try {
-      const response = await axios.get(`${DOCTOR_API_URL}/me/profile`, { headers: authHeader });
-      const doctorProfile = response.data.profile || {};
+      const [profileRes, appointmentRes] = await Promise.all([
+        axios.get(`${DOCTOR_API_URL}/me/profile`, { headers: authHeader }),
+        axios.get(`${APPOINTMENT_API_URL}/me/doctor`, { headers: authHeader })
+      ]);
 
+      const p = profileRes.data.profile || {};
       setProfile({
-        fullName: doctorProfile.fullName || session.user.fullName || '',
-        email: doctorProfile.email || session.user.email || '',
-        phoneNumber: doctorProfile.phoneNumber || session.user.phoneNumber || '',
-        profilePhoto: doctorProfile.profilePhoto || session.user.doctorProfile?.profilePhoto || '',
-        medicalLicenseNumber: doctorProfile.medicalLicenseNumber || session.user.doctorProfile?.medicalLicenseNumber || '',
-        specialization: doctorProfile.specialization || session.user.doctorProfile?.specialization || '',
-        yearsOfExperience: doctorProfile.yearsOfExperience || session.user.doctorProfile?.yearsOfExperience || '',
-        qualifications: parseQualifications(doctorProfile.qualifications || session.user.doctorProfile?.qualifications),
-        hospitalOrClinicName: doctorProfile.hospitalOrClinicName || session.user.doctorProfile?.hospitalOrClinicName || '',
-        consultationFee: doctorProfile.consultationFee || session.user.doctorProfile?.consultationFee || '',
-        clinicAddress: doctorProfile.clinicAddress || session.user.doctorProfile?.clinicAddress || '',
-        city: doctorProfile.city || session.user.doctorProfile?.city || '',
-        district: doctorProfile.district || session.user.doctorProfile?.district || '',
-        bio: doctorProfile.bio || '',
-        availabilityNotes: doctorProfile.availabilityNotes || '',
-        availabilitySchedule: Array.isArray(doctorProfile.availabilitySchedule)
-          ? doctorProfile.availabilitySchedule.map((item) => ({
-              date: item.date || '',
-              timeSlots: Array.isArray(item.timeSlots) ? item.timeSlots : []
-            }))
+        fullName: p.fullName || session.user.fullName || '',
+        email: p.email || session.user.email || '',
+        phoneNumber: p.phoneNumber || session.user.phoneNumber || '',
+        profilePhoto: p.profilePhoto || session.user.doctorProfile?.profilePhoto || '',
+        medicalLicenseNumber: p.medicalLicenseNumber || session.user.doctorProfile?.medicalLicenseNumber || '',
+        specialization: p.specialization || session.user.doctorProfile?.specialization || '',
+        yearsOfExperience: p.yearsOfExperience || session.user.doctorProfile?.yearsOfExperience || '',
+        qualifications: parseQualifications(p.qualifications || session.user.doctorProfile?.qualifications),
+        hospitalOrClinicName: p.hospitalOrClinicName || session.user.doctorProfile?.hospitalOrClinicName || '',
+        consultationFee: p.consultationFee || session.user.doctorProfile?.consultationFee || '',
+        clinicAddress: p.clinicAddress || '',
+        city: p.city || '',
+        district: p.district || '',
+        bio: p.bio || '',
+        availabilityNotes: p.availabilityNotes || '',
+        availabilitySchedule: Array.isArray(p.availabilitySchedule)
+          ? p.availabilitySchedule.map((item) => ({ date: item.date || '', timeSlots: Array.isArray(item.timeSlots) ? item.timeSlots : [] }))
           : []
       });
 
       setPrescriptionForm((prev) => ({
         ...prev,
-        doctorName: doctorProfile.fullName || session.user.fullName || ''
+        doctorName: p.fullName || session.user.fullName || ''
       }));
 
-      const appointmentResponse = await axios.get(`${APPOINTMENT_API_URL}/me/doctor`, { headers: authHeader });
-      setBookedAppointments(appointmentResponse.data.appointments || []);
+      setBookedAppointments(appointmentRes.data.appointments || []);
     } catch (error) {
       setFeedback(error.response?.data?.message || 'Unable to load doctor dashboard.');
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -157,10 +149,17 @@ function DoctorDashboard({ session }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-load all reports the first time the Reports tab is opened
+  useEffect(() => {
+    if (activeTab === 'reports' && !reportsLoaded) {
+      fetchPatientReports();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
   const saveProfile = async () => {
     setLoading(true);
     setFeedback('');
-
     try {
       const response = await axios.put(`${DOCTOR_API_URL}/me/profile`, profile, { headers: authHeader });
       setFeedback(response.data.message || 'Profile updated successfully.');
@@ -174,35 +173,25 @@ function DoctorDashboard({ session }) {
   };
 
   const submitPrescription = async () => {
-    if (!prescriptionForm.patientAuthUserId.trim()) {
-      setFeedback('Patient Auth User ID is required.');
+    if (!prescriptionForm.patientAuthUserId) {
+      setFeedback('Please select a patient first.');
       return;
     }
-
     if (!prescriptionForm.diagnosis.trim()) {
-      setFeedback('Diagnosis is required before uploading prescription.');
+      setFeedback('Diagnosis is required.');
       return;
     }
-
     if (!prescriptionForm.medications.trim()) {
       setFeedback('Please add at least one medication.');
       return;
     }
-
     setLoading(true);
     setFeedback('');
-
     try {
-      const response = await axios.post(`${DOCTOR_API_URL}/me/prescriptions`, prescriptionForm, {
-        headers: authHeader
-      });
-
+      const response = await axios.post(`${DOCTOR_API_URL}/me/prescriptions`, prescriptionForm, { headers: authHeader });
       setFeedback(response.data.message || 'Prescription uploaded successfully.');
       setSelectedTemplateId('');
-      setPrescriptionForm({
-        ...initialPrescription,
-        doctorName: profile.fullName || session.user.fullName || ''
-      });
+      setPrescriptionForm({ ...initialPrescription, doctorName: profile.fullName || session.user.fullName || '' });
     } catch (error) {
       setFeedback(error.response?.data?.message || 'Failed to upload prescription.');
     } finally {
@@ -210,20 +199,16 @@ function DoctorDashboard({ session }) {
     }
   };
 
-  const fetchPatientReports = async () => {
+  const fetchPatientReports = async (patientAuthUserId = '') => {
     setLoading(true);
     setFeedback('');
-
     try {
       const response = await axios.get(`${DOCTOR_API_URL}/patient-reports`, {
         headers: authHeader,
-        params: {
-          patientAuthUserId: patientSearchId || undefined
-        }
+        params: patientAuthUserId ? { patientAuthUserId } : {}
       });
-
       setPatientReports(response.data.reports || []);
-      setFeedback(`Loaded ${response.data.count || 0} patient reports.`);
+      setReportsLoaded(true);
     } catch (error) {
       setFeedback(error.response?.data?.message || 'Failed to load patient reports.');
     } finally {
@@ -233,80 +218,42 @@ function DoctorDashboard({ session }) {
 
   const applyTemplate = (templateId) => {
     setSelectedTemplateId(templateId);
-
-    const template = prescriptionTemplates.find((item) => item.id === templateId);
-    if (!template) {
-      setPrescriptionForm((prev) => ({
-        ...prev,
-        templateName: ''
-      }));
-      return;
-    }
-
+    const t = prescriptionTemplates.find((item) => item.id === templateId);
+    if (!t) { setPrescriptionForm((prev) => ({ ...prev, templateName: '' })); return; }
     setPrescriptionForm((prev) => ({
       ...prev,
-      diagnosis: template.diagnosis,
-      medications: template.medications,
-      dosageInstructions: template.dosageInstructions,
-      testsRecommended: template.testsRecommended,
-      templateName: template.label,
-      notes: template.notes
+      diagnosis: t.diagnosis,
+      medications: t.medications,
+      dosageInstructions: t.dosageInstructions,
+      testsRecommended: t.testsRecommended,
+      templateName: t.label,
+      notes: t.notes
     }));
   };
 
   const addAvailabilityDate = () => {
     const date = newAvailabilityDate.trim();
-    if (!date) {
-      setFeedback('Select a date before adding availability.');
-      return;
-    }
-
-    const exists = profile.availabilitySchedule.some((item) => item.date === date);
-    if (exists) {
-      setFeedback('This date is already added. Add time slots for it below.');
-      return;
-    }
-
-    setProfile((prev) => ({
-      ...prev,
-      availabilitySchedule: [...prev.availabilitySchedule, { date, timeSlots: [] }]
-    }));
+    if (!date) { setFeedback('Select a date first.'); return; }
+    if (profile.availabilitySchedule.some((item) => item.date === date)) { setFeedback('Date already added.'); return; }
+    setProfile((prev) => ({ ...prev, availabilitySchedule: [...prev.availabilitySchedule, { date, timeSlots: [] }] }));
     setNewAvailabilityDate('');
     setFeedback('');
   };
 
   const removeAvailabilityDate = (date) => {
-    setProfile((prev) => ({
-      ...prev,
-      availabilitySchedule: prev.availabilitySchedule.filter((item) => item.date !== date)
-    }));
+    setProfile((prev) => ({ ...prev, availabilitySchedule: prev.availabilitySchedule.filter((item) => item.date !== date) }));
   };
 
   const addAvailabilitySlot = (date) => {
     const slot = newAvailabilitySlot.trim();
-    if (!slot) {
-      setFeedback('Add a time slot (example: 09:00-09:30).');
-      return;
-    }
-
+    if (!slot) { setFeedback('Enter a time slot e.g. 09:00–09:30.'); return; }
     setProfile((prev) => ({
       ...prev,
       availabilitySchedule: prev.availabilitySchedule.map((item) => {
-        if (item.date !== date) {
-          return item;
-        }
-
-        if (item.timeSlots.includes(slot)) {
-          return item;
-        }
-
-        return {
-          ...item,
-          timeSlots: [...item.timeSlots, slot]
-        };
+        if (item.date !== date || item.timeSlots.includes(slot)) return item;
+        return { ...item, timeSlots: [...item.timeSlots, slot] };
       })
     }));
-
     setNewAvailabilitySlot('');
     setFeedback('');
   };
@@ -314,351 +261,483 @@ function DoctorDashboard({ session }) {
   const removeAvailabilitySlot = (date, slot) => {
     setProfile((prev) => ({
       ...prev,
-      availabilitySchedule: prev.availabilitySchedule.map((item) => {
-        if (item.date !== date) {
-          return item;
-        }
-
-        return {
-          ...item,
-          timeSlots: item.timeSlots.filter((timeSlot) => timeSlot !== slot)
-        };
-      })
+      availabilitySchedule: prev.availabilitySchedule.map((item) =>
+        item.date !== date ? item : { ...item, timeSlots: item.timeSlots.filter((s) => s !== slot) }
+      )
     }));
   };
 
-  const totalSlots = profile.availabilitySchedule.reduce((sum, item) => sum + item.timeSlots.length, 0);
-
-  const filteredBookedAppointments = bookedAppointmentDateFilter
-    ? bookedAppointments.filter((item) => item.appointmentDate === bookedAppointmentDateFilter)
+  const filteredAppointments = dateFilter
+    ? bookedAppointments.filter((a) => a.appointmentDate === dateFilter)
     : bookedAppointments;
 
+  const totalSlots = profile.availabilitySchedule.reduce((sum, item) => sum + item.timeSlots.length, 0);
+
   const initials = (profile.fullName || session.user.fullName || 'D')
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+    .split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
+
+  if (pageLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-lake/50" />
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 md:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+
+      {/* Feedback */}
       {feedback ? (
-        <p className="mb-4 rounded-xl border border-white/30 bg-white/55 px-4 py-3 text-sm font-medium text-lake backdrop-blur">
-          {feedback}
-        </p>
+        <div className="mb-5 flex items-center justify-between rounded-2xl border border-lake/20 bg-white/70 px-4 py-3 text-sm font-medium text-lake shadow-sm backdrop-blur">
+          <span>{feedback}</span>
+          <button type="button" onClick={() => setFeedback('')} className="ml-3 rounded-lg p-1 hover:bg-lake/10">
+            <X size={14} />
+          </button>
+        </div>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
-        <Card className="bg-white/52">
-          <CardContent className="p-5">
-            <div className="mb-4 flex items-center gap-3">
-              {profile.profilePhoto ? (
-                <img src={profile.profilePhoto} alt="Doctor profile" className="h-16 w-16 rounded-2xl object-cover ring-2 ring-lake/20" />
-              ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-lake text-lg font-bold text-white">{initials}</div>
-              )}
-              <div>
-                <p className="text-base font-bold text-lake">{profile.fullName || 'Doctor Profile'}</p>
-                <p className="text-xs text-ink/70">{profile.specialization || 'Specialization not set'}</p>
+      {/* ── Hero Profile Card ── */}
+      <div className="portal-shell mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-lake via-lake to-teal-700 shadow-panel">
+        <div className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-8">
+          <div className="flex items-center gap-5">
+            {profile.profilePhoto ? (
+              <img
+                src={profile.profilePhoto}
+                alt="Doctor"
+                className="h-20 w-20 rounded-2xl object-cover ring-4 ring-white/30"
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold text-white ring-4 ring-white/20">
+                {initials}
               </div>
+            )}
+            <div className="text-white">
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/60">Doctor Dashboard</p>
+              <h2 className="mt-0.5 text-2xl font-bold">Dr. {profile.fullName || 'Your Name'}</h2>
+              <p className="mt-1 text-sm text-white/80">{profile.specialization || 'Specialization not set'}</p>
+              <p className="text-sm text-white/70">{profile.hospitalOrClinicName || 'Hospital / Clinic not set'}</p>
             </div>
+          </div>
 
-            <div className="space-y-2 rounded-2xl border border-white/40 bg-white/60 p-3 text-sm text-ink/80">
-              <p><strong>License:</strong> {profile.medicalLicenseNumber || 'Not set'}</p>
-              <p><strong>Experience:</strong> {profile.yearsOfExperience || 0} years</p>
-              <p><strong>Hospital:</strong> {profile.hospitalOrClinicName || 'Not set'}</p>
-              <p><strong>Fee:</strong> {profile.consultationFee ? `LKR ${profile.consultationFee}` : 'Not set'}</p>
-              <p><strong>Available Dates:</strong> {profile.availabilitySchedule.length}</p>
-              <p><strong>Total Slots:</strong> {totalSlots}</p>
+          <div className="flex flex-wrap gap-3 md:flex-col md:items-end">
+            <div className="flex gap-3">
+              <StatPill label="Appointments" value={bookedAppointments.length} />
+              <StatPill label="Dates Available" value={profile.availabilitySchedule.length} />
+              <StatPill label="Total Slots" value={totalSlots} />
             </div>
-
-            <Button className="mt-4 w-full" onClick={() => setEditing(true)}>
+            <Button
+              variant="outline"
+              className="border-white/40 bg-white/10 text-white hover:bg-white/20"
+              onClick={() => setEditing(true)}
+            >
               <UserPen size={15} /> Edit Profile
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="bg-white/56">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Stethoscope size={18} /> Doctor Clinical Workspace
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="rounded-2xl border border-white/45 bg-white/65 p-4">
-              <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-lake">
-                <ClipboardPlus size={16} /> Upload Digital Prescription
-              </p>
-              <Field label="Prescription Template" className="mb-3">
-                <select
-                  value={selectedTemplateId}
-                  onChange={(e) => applyTemplate(e.target.value)}
-                  className="h-10 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake"
-                >
-                  <option value="">No template (custom)</option>
-                  {prescriptionTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>{template.label}</option>
-                  ))}
-                </select>
-              </Field>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Patient Auth User ID">
-                  <Input
-                    value={prescriptionForm.patientAuthUserId}
-                    onChange={(e) => setPrescriptionForm({ ...prescriptionForm, patientAuthUserId: e.target.value })}
-                  />
-                </Field>
-                <Field label="Doctor Name">
-                  <Input
-                    value={prescriptionForm.doctorName}
-                    onChange={(e) => setPrescriptionForm({ ...prescriptionForm, doctorName: e.target.value })}
-                  />
-                </Field>
-                <Field label="Diagnosis">
-                  <Input
-                    value={prescriptionForm.diagnosis}
-                    onChange={(e) => setPrescriptionForm({ ...prescriptionForm, diagnosis: e.target.value })}
-                  />
-                </Field>
-                <Field label="Medications (comma-separated)">
-                  <Input
-                    value={prescriptionForm.medications}
-                    onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medications: e.target.value })}
-                  />
-                </Field>
-                <Field label="Dosage Instructions">
-                  <Input
-                    value={prescriptionForm.dosageInstructions}
-                    onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dosageInstructions: e.target.value })}
-                  />
-                </Field>
-                <Field label="Recommended Tests">
-                  <Input
-                    value={prescriptionForm.testsRecommended}
-                    onChange={(e) => setPrescriptionForm({ ...prescriptionForm, testsRecommended: e.target.value })}
-                  />
-                </Field>
-                <Field label="Follow-Up Date">
-                  <Input
-                    type="date"
-                    value={prescriptionForm.followUpDate}
-                    onChange={(e) => setPrescriptionForm({ ...prescriptionForm, followUpDate: e.target.value })}
-                  />
-                </Field>
-              </div>
-              <Field label="Notes" className="mt-3">
-                <Input
-                  value={prescriptionForm.notes}
-                  onChange={(e) => setPrescriptionForm({ ...prescriptionForm, notes: e.target.value })}
-                />
-              </Field>
-              <Button className="mt-3" onClick={submitPrescription} disabled={loading}>
-                <FileText size={15} /> {loading ? 'Submitting...' : 'Upload Prescription'}
-              </Button>
-            </div>
-
-            <div className="rounded-2xl border border-white/45 bg-white/65 p-4">
-              <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-lake">
-                <Eye size={16} /> View Patient Uploaded Reports
-              </p>
-              <div className="flex flex-col gap-2 md:flex-row">
-                <Input
-                  placeholder="Optional: Patient Auth User ID"
-                  value={patientSearchId}
-                  onChange={(e) => setPatientSearchId(e.target.value)}
-                />
-                <Button variant="secondary" onClick={fetchPatientReports} disabled={loading}>
-                  <Search size={15} /> {loading ? 'Loading...' : 'Search'}
-                </Button>
-              </div>
-
-              <div className="mt-3 space-y-2">
-                {patientReports.length === 0 ? (
-                  <p className="rounded-xl border border-lake/10 bg-white px-3 py-2 text-sm text-ink/65">No reports to display.</p>
-                ) : (
-                  patientReports.map((report) => (
-                    <a
-                      key={report._id}
-                      href={`http://localhost:3002${report.filePath}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block rounded-xl border border-lake/10 bg-white p-3 transition hover:border-lake/30"
-                    >
-                      <p className="font-semibold text-lake">{report.title}</p>
-                      <p className="text-xs text-ink/70">Patient ID: {report.patientAuthUserId}</p>
-                      <p className="text-xs text-ink/60">{new Date(report.createdAt).toLocaleString()}</p>
-                    </a>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/45 bg-white/65 p-4">
-              <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-lake">
-                <CalendarCheck2 size={16} /> Booked Appointments
-              </p>
-
-              <div className="mb-3 flex flex-col gap-2 md:flex-row">
-                <Input
-                  type="date"
-                  value={bookedAppointmentDateFilter}
-                  onChange={(e) => setBookedAppointmentDateFilter(e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setBookedAppointmentDateFilter('')}
-                  disabled={!bookedAppointmentDateFilter}
-                >
-                  Clear Filter
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {filteredBookedAppointments.slice(0, 6).map((appointment) => (
-                  <div key={appointment._id} className="rounded-xl border border-lake/10 bg-white p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">
-                      Appointment #{appointment.appointmentNumber || '-'}
-                    </p>
-                    <p className="font-semibold text-lake">{appointment.patientName}</p>
-                    <p className="text-xs text-ink/70">{appointment.patientEmail} | {appointment.patientPhoneNumber}</p>
-                    <p className="text-xs text-ink/70">
-                      {appointment.appointmentDate} at {appointment.appointmentTimeSlot} ({appointment.appointmentType})
-                    </p>
-                    <div className="mt-1 flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">Status: {appointment.status}</p>
-                      {appointment.appointmentType === 'video' && appointment.videoRoomLink && appointment.status !== 'cancelled' ? (
-                        <Button asChild type="button" size="sm" variant="secondary">
-                          <a href={appointment.videoRoomLink} target="_blank" rel="noreferrer">
-                            <Video size={14} /> Join Call
-                          </a>
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-                {filteredBookedAppointments.length === 0 ? (
-                  <p className="rounded-xl border border-lake/10 bg-white px-3 py-2 text-sm text-ink/65">No appointments booked yet.</p>
-                ) : null}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Quick info strip */}
+        <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-white/15 bg-white/5 px-8 py-3 text-xs text-white/70">
+          {profile.medicalLicenseNumber ? <span>License: {profile.medicalLicenseNumber}</span> : null}
+          {profile.yearsOfExperience ? <span>{profile.yearsOfExperience} yrs experience</span> : null}
+          {profile.consultationFee ? <span>Fee: LKR {profile.consultationFee}</span> : null}
+          {profile.city ? <span>{profile.city}{profile.district ? `, ${profile.district}` : ''}</span> : null}
+          {profile.email ? <span>{profile.email}</span> : null}
+          {profile.phoneNumber ? <span>{profile.phoneNumber}</span> : null}
+        </div>
       </div>
 
-      {editing ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm">
-          <Card className="max-h-[92vh] w-full max-w-4xl overflow-y-auto bg-white/92">
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <UserPen size={18} /> Edit Doctor Profile
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-                <X size={16} /> Close
-              </Button>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-2">
-              <Field label="Full Name"><Input value={profile.fullName} onChange={(e) => setProfile({ ...profile, fullName: e.target.value })} /></Field>
-              <Field label="Email"><Input value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} /></Field>
-              <Field label="Phone Number"><Input value={profile.phoneNumber} onChange={(e) => setProfile({ ...profile, phoneNumber: e.target.value })} /></Field>
-              <Field label="Profile Photo URL / Base64"><Input value={profile.profilePhoto} onChange={(e) => setProfile({ ...profile, profilePhoto: e.target.value })} /></Field>
-              <Field label="Medical License Number"><Input value={profile.medicalLicenseNumber} onChange={(e) => setProfile({ ...profile, medicalLicenseNumber: e.target.value })} /></Field>
-              <Field label="Specialization"><Input value={profile.specialization} onChange={(e) => setProfile({ ...profile, specialization: e.target.value })} /></Field>
-              <Field label="Years of Experience"><Input type="number" value={profile.yearsOfExperience} onChange={(e) => setProfile({ ...profile, yearsOfExperience: e.target.value })} /></Field>
-              <Field label="Qualifications (comma-separated)"><Input value={profile.qualifications} onChange={(e) => setProfile({ ...profile, qualifications: e.target.value })} /></Field>
-              <Field label="Hospital / Clinic Name"><Input value={profile.hospitalOrClinicName} onChange={(e) => setProfile({ ...profile, hospitalOrClinicName: e.target.value })} /></Field>
-              <Field label="Consultation Fee"><Input type="number" value={profile.consultationFee} onChange={(e) => setProfile({ ...profile, consultationFee: e.target.value })} /></Field>
-              <Field label="Clinic Address"><Input value={profile.clinicAddress} onChange={(e) => setProfile({ ...profile, clinicAddress: e.target.value })} /></Field>
-              <Field label="City"><Input value={profile.city} onChange={(e) => setProfile({ ...profile, city: e.target.value })} /></Field>
-              <Field label="District"><Input value={profile.district} onChange={(e) => setProfile({ ...profile, district: e.target.value })} /></Field>
-              <Field label="Bio"><Input value={profile.bio} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} /></Field>
-              <Field label="Availability Notes"><Input value={profile.availabilityNotes} onChange={(e) => setProfile({ ...profile, availabilityNotes: e.target.value })} /></Field>
+      {/* ── Tab Bar ── */}
+      <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-white/40 bg-white/50 p-1.5 backdrop-blur">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition ${
+                activeTab === tab.id
+                  ? 'bg-lake text-white shadow-sm'
+                  : 'text-ink/60 hover:bg-white/70 hover:text-lake'
+              }`}
+            >
+              <Icon size={15} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-              <div className="col-span-full mt-1 rounded-2xl border border-lake/15 bg-white/70 p-4">
-                <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-lake">
-                  <CalendarDays size={16} /> Appointment Availability Schedule
-                </p>
+      {/* ── Tab: Appointments ── */}
+      {activeTab === 'appointments' && (
+        <div className="portal-shell space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-base font-bold text-lake">Booked Appointments ({filteredAppointments.length})</h3>
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-44"
+              />
+              {dateFilter && (
+                <Button variant="outline" size="sm" onClick={() => setDateFilter('')}>Clear</Button>
+              )}
+            </div>
+          </div>
 
-                <div className="mb-3 flex flex-col gap-2 md:flex-row">
-                  <Input
-                    type="date"
-                    value={newAvailabilityDate}
-                    onChange={(e) => setNewAvailabilityDate(e.target.value)}
-                  />
-                  <Button type="button" variant="secondary" onClick={addAvailabilityDate}>
-                    <Plus size={14} /> Add Date
-                  </Button>
-                </div>
-
-                {profile.availabilitySchedule.length === 0 ? (
-                  <p className="text-sm text-ink/65">No availability dates added yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {profile.availabilitySchedule.map((entry) => (
-                      <div key={entry.date} className="rounded-xl border border-lake/10 bg-white p-3">
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-lake">{entry.date}</p>
-                          <Button type="button" variant="ghost" size="sm" onClick={() => removeAvailabilityDate(entry.date)}>
-                            <Trash2 size={14} /> Remove Date
-                          </Button>
-                        </div>
-
-                        <div className="mb-2 flex flex-col gap-2 md:flex-row">
-                          <Input
-                            placeholder="Time slot (example: 09:00-09:30)"
-                            value={newAvailabilitySlot}
-                            onChange={(e) => setNewAvailabilitySlot(e.target.value)}
-                          />
-                          <Button type="button" variant="outline" onClick={() => addAvailabilitySlot(entry.date)}>
-                            <Plus size={14} /> Add Slot
-                          </Button>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          {entry.timeSlots.length === 0 ? (
-                            <p className="text-sm text-ink/65">No slots added yet for this date.</p>
-                          ) : (
-                            entry.timeSlots.map((slot) => (
-                              <span key={`${entry.date}-${slot}`} className="inline-flex items-center gap-1 rounded-lg border border-lake/20 bg-lake/5 px-2 py-1 text-xs font-medium text-lake">
-                                {slot}
-                                <button
-                                  type="button"
-                                  onClick={() => removeAvailabilitySlot(entry.date, slot)}
-                                  className="rounded p-0.5 transition hover:bg-lake/15"
-                                  aria-label={`Remove ${slot}`}
-                                >
-                                  <X size={12} />
-                                </button>
-                              </span>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    ))}
+          {filteredAppointments.length === 0 ? (
+            <EmptyState icon={CalendarCheck2} message="No appointments found." />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredAppointments.map((apt) => (
+                <div
+                  key={apt._id}
+                  className="rounded-2xl border border-lake/10 bg-white p-4 shadow-sm transition hover:shadow-md"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-ink/40">
+                        #{apt.appointmentNumber || '—'}
+                      </p>
+                      <p className="mt-0.5 text-base font-bold text-lake">{apt.patientName}</p>
+                    </div>
+                    <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${STATUS_STYLES[apt.status] || 'bg-ink/10 text-ink/60'}`}>
+                      {apt.status}
+                    </span>
                   </div>
-                )}
+
+                  <div className="space-y-1 text-xs text-ink/65">
+                    <p>{apt.patientEmail}</p>
+                    <p>{apt.patientPhoneNumber}</p>
+                    <p className="font-medium text-ink/80">
+                      {apt.appointmentDate} · {apt.appointmentTimeSlot}
+                    </p>
+                    <p className="capitalize">{apt.appointmentType} consultation</p>
+                  </div>
+
+                  {apt.appointmentType === 'video' && apt.videoRoomLink && apt.status !== 'cancelled' ? (
+                    <Button asChild size="sm" variant="secondary" className="mt-3 w-full">
+                      <a href={apt.videoRoomLink} target="_blank" rel="noreferrer">
+                        <Video size={13} /> Join Video Call
+                      </a>
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Prescriptions ── */}
+      {activeTab === 'prescriptions' && (
+        <div className="portal-shell">
+          <Card className="border-0 bg-white/70 shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lake">
+                <ClipboardPlus size={18} /> Upload Digital Prescription
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Template selector */}
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-ink/70">Quick Template</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => applyTemplate('')}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${!selectedTemplateId ? 'border-lake bg-lake text-white' : 'border-lake/20 bg-white text-ink/70 hover:border-lake/40'}`}
+                  >
+                    Custom
+                  </button>
+                  {prescriptionTemplates.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => applyTemplate(t.id)}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${selectedTemplateId === t.id ? 'border-lake bg-lake text-white' : 'border-lake/20 bg-white text-ink/70 hover:border-lake/40'}`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="col-span-full mt-2 flex justify-end gap-2">
+              {/* Patient selector */}
+              <FormField label="Select Patient">
+                <select
+                  value={prescriptionForm.patientAuthUserId}
+                  onChange={(e) => setPrescriptionForm({ ...prescriptionForm, patientAuthUserId: e.target.value })}
+                  className="h-10 w-full rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake"
+                >
+                  <option value="">— Select a booked patient —</option>
+                  {bookedAppointments
+                    .filter((a) => a.status !== 'cancelled')
+                    .map((a) => (
+                      <option key={a._id} value={a.patientAuthUserId}>
+                        {a.patientName} · {a.appointmentDate} {a.appointmentTimeSlot} ({a.appointmentType})
+                      </option>
+                    ))}
+                </select>
+              </FormField>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField label="Doctor Name">
+                  <Input value={prescriptionForm.doctorName} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, doctorName: e.target.value })} />
+                </FormField>
+                <FormField label="Diagnosis">
+                  <Input value={prescriptionForm.diagnosis} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, diagnosis: e.target.value })} />
+                </FormField>
+                <FormField label="Medications (comma-separated)">
+                  <Input value={prescriptionForm.medications} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medications: e.target.value })} />
+                </FormField>
+                <FormField label="Dosage Instructions">
+                  <Input value={prescriptionForm.dosageInstructions} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dosageInstructions: e.target.value })} />
+                </FormField>
+                <FormField label="Recommended Tests">
+                  <Input value={prescriptionForm.testsRecommended} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, testsRecommended: e.target.value })} />
+                </FormField>
+                <FormField label="Follow-Up Date">
+                  <Input type="date" value={prescriptionForm.followUpDate} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, followUpDate: e.target.value })} />
+                </FormField>
+              </div>
+
+              <FormField label="Notes">
+                <Input value={prescriptionForm.notes} onChange={(e) => setPrescriptionForm({ ...prescriptionForm, notes: e.target.value })} />
+              </FormField>
+
+              <Button onClick={submitPrescription} disabled={loading} className="w-full sm:w-auto">
+                {loading ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+                {loading ? 'Submitting…' : 'Upload Prescription'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Tab: Patient Reports ── */}
+      {activeTab === 'reports' && (
+        <div className="portal-shell space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <select
+              value={reportPatientFilter}
+              onChange={(e) => {
+                setReportPatientFilter(e.target.value);
+                fetchPatientReports(e.target.value);
+              }}
+              className="h-10 flex-1 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake"
+            >
+              <option value="">All patients</option>
+              {[...new Map(
+                bookedAppointments
+                  .filter((a) => a.status !== 'cancelled')
+                  .map((a) => [a.patientAuthUserId, a])
+              ).values()].map((a) => (
+                <option key={a.patientAuthUserId} value={a.patientAuthUserId}>
+                  {a.patientName} ({a.patientEmail})
+                </option>
+              ))}
+            </select>
+
+            <Button
+              variant="secondary"
+              onClick={() => fetchPatientReports(reportPatientFilter)}
+              disabled={loading}
+            >
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+              Refresh
+            </Button>
+          </div>
+
+          {loading && !reportsLoaded ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={24} className="animate-spin text-lake/40" />
+            </div>
+          ) : patientReports.length === 0 ? (
+            <EmptyState icon={Eye} message="No patient reports found." />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {patientReports.map((report) => {
+                const owner = bookedAppointments.find((a) => a.patientAuthUserId === report.patientAuthUserId);
+                return (
+                  <a
+                    key={report._id}
+                    href={`http://localhost:3002${report.filePath}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group rounded-2xl border border-lake/10 bg-white p-4 shadow-sm transition hover:border-lake/30 hover:shadow-md"
+                  >
+                    <p className="font-semibold text-lake group-hover:underline">{report.title}</p>
+                    {owner ? (
+                      <p className="mt-1 text-xs font-medium text-ink/70">{owner.patientName}</p>
+                    ) : null}
+                    {report.description ? (
+                      <p className="mt-0.5 text-xs text-ink/55">{report.description}</p>
+                    ) : null}
+                    <p className="mt-1 text-xs text-ink/40">{new Date(report.createdAt).toLocaleString()}</p>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Availability ── */}
+      {activeTab === 'availability' && (
+        <div className="portal-shell space-y-5">
+          <div className="rounded-2xl border border-lake/10 bg-white p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-bold text-lake">Add Availability Date</h3>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Input
+                type="date"
+                value={newAvailabilityDate}
+                onChange={(e) => setNewAvailabilityDate(e.target.value)}
+                className="sm:w-48"
+              />
+              <Button variant="secondary" onClick={addAvailabilityDate}>
+                <Plus size={14} /> Add Date
+              </Button>
+            </div>
+          </div>
+
+          {profile.availabilitySchedule.length === 0 ? (
+            <EmptyState icon={CalendarDays} message="No availability dates added yet." />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {profile.availabilitySchedule.map((entry) => (
+                <div key={entry.date} className="rounded-2xl border border-lake/10 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="font-bold text-lake">{entry.date}</p>
+                    <button
+                      type="button"
+                      onClick={() => removeAvailabilityDate(entry.date)}
+                      className="rounded-lg p-1 text-ember/70 transition hover:bg-ember/10 hover:text-ember"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+
+                  <div className="mb-3 flex gap-2">
+                    <Input
+                      placeholder="e.g. 09:00–09:30"
+                      value={newAvailabilitySlot}
+                      onChange={(e) => setNewAvailabilitySlot(e.target.value)}
+                    />
+                    <Button size="sm" variant="outline" onClick={() => addAvailabilitySlot(entry.date)}>
+                      <Plus size={13} />
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {entry.timeSlots.length === 0 ? (
+                      <p className="text-xs text-ink/50">No time slots yet.</p>
+                    ) : (
+                      entry.timeSlots.map((slot) => (
+                        <span
+                          key={`${entry.date}-${slot}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-lake/20 bg-lake/5 px-2.5 py-1 text-xs font-semibold text-lake"
+                        >
+                          {slot}
+                          <button
+                            type="button"
+                            onClick={() => removeAvailabilitySlot(entry.date, slot)}
+                            className="rounded p-0.5 transition hover:bg-lake/20"
+                          >
+                            <X size={11} />
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button onClick={saveProfile} disabled={loading} className="w-full sm:w-auto">
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            {loading ? 'Saving…' : 'Save Availability'}
+          </Button>
+        </div>
+      )}
+
+      {/* ── Edit Profile Modal ── */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
+          <Card className="max-h-[92vh] w-full max-w-4xl overflow-y-auto border-0 bg-white shadow-panel">
+            <CardHeader className="sticky top-0 z-10 flex-row items-center justify-between border-b border-lake/10 bg-white pb-4">
+              <CardTitle className="flex items-center gap-2 text-lake">
+                <UserPen size={18} /> Edit Doctor Profile
+              </CardTitle>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="rounded-xl p-1.5 text-ink/50 transition hover:bg-lake/10 hover:text-lake"
+              >
+                <X size={18} />
+              </button>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-6 md:grid-cols-2">
+              <FormField label="Full Name"><Input value={profile.fullName} onChange={(e) => setProfile({ ...profile, fullName: e.target.value })} /></FormField>
+              <FormField label="Email"><Input value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} /></FormField>
+              <FormField label="Phone Number"><Input value={profile.phoneNumber} onChange={(e) => setProfile({ ...profile, phoneNumber: e.target.value })} /></FormField>
+              <FormField label="Profile Photo URL"><Input value={profile.profilePhoto} onChange={(e) => setProfile({ ...profile, profilePhoto: e.target.value })} /></FormField>
+              <FormField label="Medical License Number"><Input value={profile.medicalLicenseNumber} onChange={(e) => setProfile({ ...profile, medicalLicenseNumber: e.target.value })} /></FormField>
+              <FormField label="Specialization"><Input value={profile.specialization} onChange={(e) => setProfile({ ...profile, specialization: e.target.value })} /></FormField>
+              <FormField label="Years of Experience"><Input type="number" value={profile.yearsOfExperience} onChange={(e) => setProfile({ ...profile, yearsOfExperience: e.target.value })} /></FormField>
+              <FormField label="Qualifications (comma-separated)"><Input value={profile.qualifications} onChange={(e) => setProfile({ ...profile, qualifications: e.target.value })} /></FormField>
+              <FormField label="Hospital / Clinic Name"><Input value={profile.hospitalOrClinicName} onChange={(e) => setProfile({ ...profile, hospitalOrClinicName: e.target.value })} /></FormField>
+              <FormField label="Consultation Fee (LKR)"><Input type="number" value={profile.consultationFee} onChange={(e) => setProfile({ ...profile, consultationFee: e.target.value })} /></FormField>
+              <FormField label="Clinic Address"><Input value={profile.clinicAddress} onChange={(e) => setProfile({ ...profile, clinicAddress: e.target.value })} /></FormField>
+              <FormField label="City"><Input value={profile.city} onChange={(e) => setProfile({ ...profile, city: e.target.value })} /></FormField>
+              <FormField label="District"><Input value={profile.district} onChange={(e) => setProfile({ ...profile, district: e.target.value })} /></FormField>
+              <FormField label="Bio"><Input value={profile.bio} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} /></FormField>
+              <FormField label="Availability Notes" className="col-span-full md:col-span-1">
+                <Input value={profile.availabilityNotes} onChange={(e) => setProfile({ ...profile, availabilityNotes: e.target.value })} />
+              </FormField>
+
+              <div className="col-span-full mt-2 flex justify-end gap-3 border-t border-lake/10 pt-4">
                 <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
                 <Button onClick={saveProfile} disabled={loading}>
-                  <Save size={15} /> {loading ? 'Saving...' : 'Save Profile'}
+                  {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                  {loading ? 'Saving…' : 'Save Profile'}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
 
-function Field({ label, children, className = '' }) {
+function StatPill({ label, value }) {
   return (
-    <label className={`flex flex-col gap-1 text-sm font-medium text-ink/80 ${className}`}>
+    <div className="rounded-xl bg-white/15 px-3 py-2 text-center text-white">
+      <p className="text-lg font-bold leading-tight">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/70">{label}</p>
+    </div>
+  );
+}
+
+function FormField({ label, children, className = '' }) {
+  return (
+    <label className={`flex flex-col gap-1.5 text-sm font-semibold text-ink/70 ${className}`}>
       {label}
       {children}
     </label>
+  );
+}
+
+function EmptyState({ icon: Icon, message }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-lake/20 bg-white/50 py-14 text-center">
+      <Icon size={32} className="mb-3 text-lake/30" />
+      <p className="text-sm text-ink/50">{message}</p>
+    </div>
   );
 }
 

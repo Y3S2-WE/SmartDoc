@@ -78,24 +78,25 @@ function PatientDashboard({ session }) {
       ]);
 
       const profile = profileRes.data.profile || {};
+      const ap = session.user.patientProfile || {};
       setDashboardProfile({
         fullName: profile.fullName || session.user.fullName || '',
         email: profile.email || session.user.email || '',
         phoneNumber: profile.phoneNumber || session.user.phoneNumber || '',
-        dateOfBirth: profile.dateOfBirth ? String(profile.dateOfBirth).slice(0, 10) : '',
-        gender: profile.gender || '',
-        nationalId: profile.nationalId || '',
-        profilePhoto: profile.profilePhoto || '',
-        bloodGroup: profile.bloodGroup || '',
-        knownAllergies: normalizeArrayField(profile.knownAllergies),
-        medicalConditions: normalizeArrayField(profile.medicalConditions),
-        currentMedications: normalizeArrayField(profile.currentMedications),
-        emergencyContactName: profile.emergencyContactName || '',
-        emergencyContactPhone: profile.emergencyContactPhone || '',
-        addressLine: profile.addressLine || '',
-        city: profile.city || '',
-        district: profile.district || '',
-        postalCode: profile.postalCode || ''
+        dateOfBirth: profile.dateOfBirth ? String(profile.dateOfBirth).slice(0, 10) : (ap.dateOfBirth ? String(ap.dateOfBirth).slice(0, 10) : ''),
+        gender: profile.gender || ap.gender || '',
+        nationalId: profile.nationalId || ap.nationalId || '',
+        profilePhoto: profile.profilePhoto || ap.profilePhoto || '',
+        bloodGroup: profile.bloodGroup || ap.bloodGroup || '',
+        knownAllergies: normalizeArrayField(profile.knownAllergies) || normalizeArrayField(ap.knownAllergies),
+        medicalConditions: normalizeArrayField(profile.medicalConditions) || normalizeArrayField(ap.medicalConditions),
+        currentMedications: normalizeArrayField(profile.currentMedications) || normalizeArrayField(ap.currentMedications),
+        emergencyContactName: profile.emergencyContactName || ap.emergencyContactName || '',
+        emergencyContactPhone: profile.emergencyContactPhone || ap.emergencyContactPhone || '',
+        addressLine: profile.addressLine || ap.addressLine || '',
+        city: profile.city || ap.city || '',
+        district: profile.district || ap.district || '',
+        postalCode: profile.postalCode || ap.postalCode || ''
       });
 
       setReports(reportsRes.data.reports || []);
