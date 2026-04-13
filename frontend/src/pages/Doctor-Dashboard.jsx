@@ -94,6 +94,7 @@ function DoctorDashboard({ session }) {
   const [prescriptionForm, setPrescriptionForm] = useState(initialPrescription);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [reportPatientFilter, setReportPatientFilter] = useState('');
+  const [reportSearch, setReportSearch] = useState('');
   const [patientReports, setPatientReports] = useState([]);
   const [reportsLoaded, setReportsLoaded] = useState(false);
   const [bookedAppointments, setBookedAppointments] = useState([]);
@@ -748,8 +749,9 @@ function DoctorDashboard({ session }) {
       {activeTab === 'reports' && (
         <div className="space-y-5">
 
-          {/* ── Header + patient filter ── */}
+          {/* ── Header + search + patient filter ── */}
           <div className="overflow-hidden rounded-2xl border border-lake/15 bg-white shadow-sm">
+            {/* Header row */}
             <div className="flex items-center justify-between border-b border-lake/10 bg-gradient-to-r from-lake/5 to-transparent px-6 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-lake/10">
@@ -769,12 +771,39 @@ function DoctorDashboard({ session }) {
               </Button>
             </div>
 
+            {/* Search bar */}
+            <div className="border-b border-lake/10 px-4 py-3">
+              <div className="flex items-center gap-2 rounded-xl border border-lake/20 bg-lake/3 px-3 py-2 transition focus-within:border-lake focus-within:ring-2 focus-within:ring-lake/10">
+                <Search size={15} className="flex-shrink-0 text-ink/35" />
+                <input
+                  type="text"
+                  placeholder="Search by patient name or report title…"
+                  value={reportSearch}
+                  onChange={(e) => {
+                    setReportSearch(e.target.value);
+                    setReportPatientFilter('');
+                  }}
+                  className="w-full bg-transparent text-sm text-ink/80 placeholder:text-ink/35 outline-none"
+                />
+                {reportSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setReportSearch('')}
+                    className="flex-shrink-0 rounded p-0.5 text-ink/35 transition hover:text-ink/70"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Patient pills */}
             <div className="flex flex-wrap gap-2 p-4">
               <button
                 type="button"
-                onClick={() => { setReportPatientFilter(''); fetchPatientReports(''); }}
+                onClick={() => { setReportPatientFilter(''); setReportSearch(''); fetchPatientReports(''); }}
                 className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                  !reportPatientFilter ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
+                  !reportPatientFilter && !reportSearch ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
                 }`}
               >
                 All Patients
@@ -783,18 +812,20 @@ function DoctorDashboard({ session }) {
                 bookedAppointments
                   .filter((a) => a.status !== 'cancelled')
                   .map((a) => [a.patientAuthUserId, a])
-              ).values()].map((a) => (
-                <button
-                  key={a.patientAuthUserId}
-                  type="button"
-                  onClick={() => { setReportPatientFilter(a.patientAuthUserId); fetchPatientReports(a.patientAuthUserId); }}
-                  className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                    reportPatientFilter === a.patientAuthUserId ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
-                  }`}
-                >
-                  {a.patientName}
-                </button>
-              ))}
+              ).values()]
+                .filter((a) => !reportSearch || a.patientName.toLowerCase().includes(reportSearch.toLowerCase()))
+                .map((a) => (
+                  <button
+                    key={a.patientAuthUserId}
+                    type="button"
+                    onClick={() => { setReportPatientFilter(a.patientAuthUserId); setReportSearch(''); fetchPatientReports(a.patientAuthUserId); }}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                      reportPatientFilter === a.patientAuthUserId ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
+                    }`}
+                  >
+                    {a.patientName}
+                  </button>
+                ))}
             </div>
           </div>
 
@@ -807,7 +838,17 @@ function DoctorDashboard({ session }) {
             <EmptyState icon={Eye} message="No patient reports found." />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {patientReports.map((report) => {
+              {patientReports
+                .filter((report) => {
+                  if (!reportSearch) return true;
+                  const q = reportSearch.toLowerCase();
+                  const owner = bookedAppointments.find((a) => a.patientAuthUserId === report.patientAuthUserId);
+                  return (
+                    report.title?.toLowerCase().includes(q) ||
+                    owner?.patientName?.toLowerCase().includes(q)
+                  );
+                })
+                .map((report) => {
                 const owner = bookedAppointments.find((a) => a.patientAuthUserId === report.patientAuthUserId);
                 const isPdf = report.mimeType?.includes('pdf');
                 const isImage = report.mimeType?.startsWith('image/');
