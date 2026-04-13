@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 const PatientProfile = require('../models/PatientProfile');
 const MedicalReport = require('../models/MedicalReport');
 const Prescription = require('../models/Prescription');
@@ -181,12 +184,35 @@ const issuePrescription = async (req, res, next) => {
   }
 };
 
+const deleteReportByDoctor = async (req, res, next) => {
+  try {
+    const report = await MedicalReport.findById(req.params.reportId);
+
+    if (!report) {
+      res.status(404);
+      throw new Error('Report not found');
+    }
+
+    const diskPath = path.join(process.cwd(), 'uploads', path.basename(report.filePath));
+    if (fs.existsSync(diskPath)) {
+      fs.unlinkSync(diskPath);
+    }
+
+    await report.deleteOne();
+
+    res.status(200).json({ message: 'Report deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyProfile,
   updateMyProfile,
   uploadMedicalReport,
   listMedicalReports,
   listPatientReportsForDoctor,
+  deleteReportByDoctor,
   listMyPrescriptions,
   issuePrescription
 };

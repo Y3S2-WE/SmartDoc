@@ -3,10 +3,16 @@ import axios from 'axios';
 import {
   CalendarCheck2,
   CalendarDays,
+  CheckCircle2,
+  Circle,
   ClipboardPlus,
+  Clock,
+  ExternalLink,
   Eye,
   FileText,
   Loader2,
+  Mail,
+  Phone,
   Plus,
   Save,
   Search,
@@ -14,10 +20,11 @@ import {
   Trash2,
   UserPen,
   Video,
-  X
+  X,
+  XCircle
 } from 'lucide-react';
 
-import { APPOINTMENT_API_URL, DOCTOR_API_URL } from '../lib/api';
+import { APPOINTMENT_API_URL, DOCTOR_API_URL, PATIENT_API_URL } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -69,11 +76,11 @@ const prescriptionTemplates = [
   }
 ];
 
-const STATUS_STYLES = {
-  booked:    'bg-lake/10 text-lake',
-  confirmed: 'bg-mint/20 text-teal-700',
-  completed: 'bg-emerald-50 text-emerald-700',
-  cancelled: 'bg-ember/10 text-ember'
+const STATUS_CONFIG = {
+  booked:    { label: 'Booked',    chip: 'bg-blue-50 text-blue-600 border-blue-200',    dot: 'bg-blue-500',    bar: 'bg-blue-500'    },
+  confirmed: { label: 'Confirmed', chip: 'bg-teal-50 text-teal-700 border-teal-200',    dot: 'bg-teal-500',    bar: 'bg-teal-500'    },
+  completed: { label: 'Completed', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', bar: 'bg-emerald-500' },
+  cancelled: { label: 'Cancelled', chip: 'bg-red-50 text-red-600 border-red-200',       dot: 'bg-red-400',     bar: 'bg-red-400'     },
 };
 
 function DoctorDashboard({ session }) {
@@ -91,6 +98,7 @@ function DoctorDashboard({ session }) {
   const [reportsLoaded, setReportsLoaded] = useState(false);
   const [bookedAppointments, setBookedAppointments] = useState([]);
   const [dateFilter, setDateFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [avForm, setAvForm] = useState({ date: '', start: '', end: '', interval: 30 });
 
   const authHeader = useMemo(() => ({ Authorization: `Bearer ${session.token}` }), [session.token]);
@@ -193,6 +201,21 @@ function DoctorDashboard({ session }) {
       setPrescriptionForm({ ...initialPrescription, doctorName: profile.fullName || session.user.fullName || '' });
     } catch (error) {
       setFeedback(error.response?.data?.message || 'Failed to upload prescription.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deletePatientReport = async (reportId) => {
+    if (!window.confirm('Delete this report? This cannot be undone.')) return;
+    setLoading(true);
+    setFeedback('');
+    try {
+      await axios.delete(`${PATIENT_API_URL}/reports/${reportId}`, { headers: authHeader });
+      setFeedback('Report deleted successfully.');
+      setPatientReports((prev) => prev.filter((r) => r._id !== reportId));
+    } catch (error) {
+      setFeedback(error.response?.data?.message || 'Failed to delete report.');
     } finally {
       setLoading(false);
     }
@@ -314,9 +337,34 @@ function DoctorDashboard({ session }) {
     }
   };
 
-  const filteredAppointments = dateFilter
-    ? bookedAppointments.filter((a) => a.appointmentDate === dateFilter)
-    : bookedAppointments;
+  const updateAppointmentStatus = async (appointmentId, status) => {
+    setLoading(true);
+    setFeedback('');
+    try {
+      const response = await axios.patch(
+        `${APPOINTMENT_API_URL}/me/doctor/${appointmentId}/status`,
+        { status },
+        { headers: authHeader }
+      );
+      setFeedback(response.data.message || `Appointment ${status}.`);
+      await loadDoctorDashboard();
+    } catch (error) {
+      setFeedback(error.response?.data?.message || 'Failed to update appointment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredAppointments = bookedAppointments.filter((a) => {
+    const dateMatch = !dateFilter || a.appointmentDate === dateFilter;
+    const statusMatch = statusFilter === 'all' || a.status === statusFilter;
+    return dateMatch && statusMatch;
+  });
+
+  const statusCounts = bookedAppointments.reduce((acc, a) => {
+    acc[a.status] = (acc[a.status] || 0) + 1;
+    return acc;
+  }, {});
 
   const totalSlots = profile.availabilitySchedule.reduce((sum, item) => sum + item.timeSlots.length, 0);
 
@@ -418,61 +466,193 @@ function DoctorDashboard({ session }) {
 
       {/* ── Tab: Appointments ── */}
       {activeTab === 'appointments' && (
-        <div className="portal-shell space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-base font-bold text-lake">Booked Appointments ({filteredAppointments.length})</h3>
-            <div className="flex gap-2">
-              <Input
+        <div className="space-y-5">
+
+          {/* ── Status summary strip ── */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { key: 'booked',    label: 'Booked',    icon: Circle },
+              { key: 'confirmed', label: 'Confirmed', icon: CheckCircle2 },
+              { key: 'completed', label: 'Completed', icon: CheckCircle2 },
+              { key: 'cancelled', label: 'Cancelled', icon: XCircle },
+            ].map(({ key, label, icon: Icon }) => {
+              const cfg = STATUS_CONFIG[key];
+              const count = statusCounts[key] || 0;
+              const active = statusFilter === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setStatusFilter(active ? 'all' : key)}
+                  className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition hover:shadow-md ${
+                    active ? `${cfg.chip} border-current shadow-sm` : 'border-white/60 bg-white hover:border-lake/20'
+                  }`}
+                >
+                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${active ? 'bg-current/10' : 'bg-ink/5'}`}>
+                    <Icon size={16} className={active ? 'opacity-80' : 'text-ink/40'} />
+                  </div>
+                  <div>
+                    <p className={`text-xl font-bold leading-tight ${active ? '' : 'text-ink'}`}>{count}</p>
+                    <p className={`text-[11px] font-semibold uppercase tracking-wide ${active ? 'opacity-70' : 'text-ink/50'}`}>{label}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Filter bar ── */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-white/50 bg-white/60 px-4 py-3 backdrop-blur">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-bold text-ink">
+                {statusFilter === 'all' ? 'All Appointments' : STATUS_CONFIG[statusFilter]?.label}
+                <span className="ml-2 rounded-lg bg-lake/10 px-2 py-0.5 text-xs font-bold text-lake">{filteredAppointments.length}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="w-44"
+                className="h-9 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/80 outline-none transition focus:border-lake focus:ring-2 focus:ring-lake/10"
               />
-              {dateFilter && (
-                <Button variant="outline" size="sm" onClick={() => setDateFilter('')}>Clear</Button>
+              {(dateFilter || statusFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => { setDateFilter(''); setStatusFilter('all'); }}
+                  className="flex items-center gap-1.5 rounded-xl border border-lake/20 bg-white px-3 py-1.5 text-xs font-semibold text-ink/60 transition hover:border-lake/40 hover:text-lake"
+                >
+                  <X size={12} /> Clear
+                </button>
               )}
             </div>
           </div>
 
+          {/* ── Cards ── */}
           {filteredAppointments.length === 0 ? (
-            <EmptyState icon={CalendarCheck2} message="No appointments found." />
+            <EmptyState icon={CalendarCheck2} message="No appointments match the current filters." />
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {filteredAppointments.map((apt) => (
-                <div
-                  key={apt._id}
-                  className="rounded-2xl border border-lake/10 bg-white p-4 shadow-sm transition hover:shadow-md"
-                >
-                  <div className="mb-3 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-ink/40">
-                        #{apt.appointmentNumber || '—'}
-                      </p>
-                      <p className="mt-0.5 text-base font-bold text-lake">{apt.patientName}</p>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredAppointments
+                .slice()
+                .sort((a, b) => {
+                  const d = a.appointmentDate.localeCompare(b.appointmentDate);
+                  return d !== 0 ? d : (a.appointmentTimeSlot || '').localeCompare(b.appointmentTimeSlot || '');
+                })
+                .map((apt) => {
+                  const cfg = STATUS_CONFIG[apt.status] || { label: apt.status, chip: 'bg-ink/10 text-ink/60 border-ink/20', bar: 'bg-ink/20', dot: 'bg-ink/40' };
+                  const initials = (apt.patientName || 'P').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+                  const isVideo = apt.appointmentType === 'video';
+                  const fmtDate = apt.appointmentDate
+                    ? new Date(apt.appointmentDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                    : '—';
+
+                  return (
+                    <div key={apt._id} className="group flex flex-col overflow-hidden rounded-2xl border border-lake/10 bg-white shadow-sm transition hover:shadow-lg">
+
+                      {/* Status bar */}
+                      <div className={`h-1 w-full ${cfg.bar}`} />
+
+                      <div className="flex flex-1 flex-col p-5">
+                        {/* Header: avatar + name + badge */}
+                        <div className="mb-4 flex items-start gap-3">
+                          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-lake/10 text-sm font-bold text-lake">
+                            {initials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink/35">
+                              #{apt.appointmentNumber || '—'}
+                            </p>
+                            <p className="truncate text-base font-bold text-ink">{apt.patientName}</p>
+                          </div>
+                          <span className={`inline-flex flex-shrink-0 items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${cfg.chip}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                            {cfg.label}
+                          </span>
+                        </div>
+
+                        {/* Date / time / type row */}
+                        <div className="mb-4 rounded-xl border border-lake/8 bg-lake/3 px-3 py-2.5 space-y-1.5">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-ink/75">
+                            <CalendarCheck2 size={13} className="text-lake flex-shrink-0" />
+                            {fmtDate}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs font-semibold text-ink/75">
+                            <Clock size={13} className="text-lake flex-shrink-0" />
+                            {apt.appointmentTimeSlot || '—'}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isVideo ? (
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-lake/10 px-2 py-0.5 text-[11px] font-bold text-lake">
+                                <Video size={11} /> Video
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-ink/8 px-2 py-0.5 text-[11px] font-bold text-ink/60">
+                                <Stethoscope size={11} /> Physical
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Contact */}
+                        <div className="mt-auto space-y-1.5 text-xs text-ink/55">
+                          {apt.patientEmail && (
+                            <div className="flex items-center gap-2 truncate">
+                              <Mail size={11} className="flex-shrink-0" />
+                              <span className="truncate">{apt.patientEmail}</span>
+                            </div>
+                          )}
+                          {apt.patientPhoneNumber && (
+                            <div className="flex items-center gap-2">
+                              <Phone size={11} className="flex-shrink-0" />
+                              {apt.patientPhoneNumber}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Video CTA */}
+                        {isVideo && apt.videoRoomLink && apt.status !== 'cancelled' && (
+                          <Button asChild size="sm" className="mt-4 w-full gap-2">
+                            <a href={apt.videoRoomLink} target="_blank" rel="noreferrer">
+                              <Video size={13} /> Join Video Call
+                            </a>
+                          </Button>
+                        )}
+
+                        {/* Doctor actions */}
+                        {(apt.status === 'booked' || apt.status === 'confirmed') && (
+                          <div className="mt-4 flex gap-2 border-t border-lake/8 pt-4">
+                            {apt.status === 'booked' && (
+                              <button
+                                type="button"
+                                disabled={loading}
+                                onClick={() => updateAppointmentStatus(apt._id, 'confirmed')}
+                                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 py-1.5 text-xs font-bold text-teal-700 transition hover:bg-teal-100 disabled:opacity-50"
+                              >
+                                <CheckCircle2 size={13} /> Confirm
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={() => updateAppointmentStatus(apt._id, 'completed')}
+                              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+                            >
+                              <CheckCircle2 size={13} /> Complete
+                            </button>
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={() => updateAppointmentStatus(apt._id, 'cancelled')}
+                              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                            >
+                              <XCircle size={13} /> Cancel
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${STATUS_STYLES[apt.status] || 'bg-ink/10 text-ink/60'}`}>
-                      {apt.status}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-ink/65">
-                    <p>{apt.patientEmail}</p>
-                    <p>{apt.patientPhoneNumber}</p>
-                    <p className="font-medium text-ink/80">
-                      {apt.appointmentDate} · {apt.appointmentTimeSlot}
-                    </p>
-                    <p className="capitalize">{apt.appointmentType} consultation</p>
-                  </div>
-
-                  {apt.appointmentType === 'video' && apt.videoRoomLink && apt.status !== 'cancelled' ? (
-                    <Button asChild size="sm" variant="secondary" className="mt-3 w-full">
-                      <a href={apt.videoRoomLink} target="_blank" rel="noreferrer">
-                        <Video size={13} /> Join Video Call
-                      </a>
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
+                  );
+                })}
             </div>
           )}
         </div>
@@ -566,65 +746,127 @@ function DoctorDashboard({ session }) {
 
       {/* ── Tab: Patient Reports ── */}
       {activeTab === 'reports' && (
-        <div className="portal-shell space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <select
-              value={reportPatientFilter}
-              onChange={(e) => {
-                setReportPatientFilter(e.target.value);
-                fetchPatientReports(e.target.value);
-              }}
-              className="h-10 flex-1 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake"
-            >
-              <option value="">All patients</option>
+        <div className="space-y-5">
+
+          {/* ── Header + patient filter ── */}
+          <div className="overflow-hidden rounded-2xl border border-lake/15 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-lake/10 bg-gradient-to-r from-lake/5 to-transparent px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-lake/10">
+                  <Eye size={17} className="text-lake" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-ink">Patient Reports</p>
+                  <p className="text-xs text-ink/50">
+                    {patientReports.length} report{patientReports.length !== 1 ? 's' : ''}
+                    {reportPatientFilter ? ' for selected patient' : ' total'}
+                  </p>
+                </div>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => fetchPatientReports(reportPatientFilter)} disabled={loading}>
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                Refresh
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 p-4">
+              <button
+                type="button"
+                onClick={() => { setReportPatientFilter(''); fetchPatientReports(''); }}
+                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                  !reportPatientFilter ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
+                }`}
+              >
+                All Patients
+              </button>
               {[...new Map(
                 bookedAppointments
                   .filter((a) => a.status !== 'cancelled')
                   .map((a) => [a.patientAuthUserId, a])
               ).values()].map((a) => (
-                <option key={a.patientAuthUserId} value={a.patientAuthUserId}>
-                  {a.patientName} ({a.patientEmail})
-                </option>
+                <button
+                  key={a.patientAuthUserId}
+                  type="button"
+                  onClick={() => { setReportPatientFilter(a.patientAuthUserId); fetchPatientReports(a.patientAuthUserId); }}
+                  className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                    reportPatientFilter === a.patientAuthUserId ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
+                  }`}
+                >
+                  {a.patientName}
+                </button>
               ))}
-            </select>
-
-            <Button
-              variant="secondary"
-              onClick={() => fetchPatientReports(reportPatientFilter)}
-              disabled={loading}
-            >
-              {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
-              Refresh
-            </Button>
+            </div>
           </div>
 
+          {/* ── Report cards ── */}
           {loading && !reportsLoaded ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 size={24} className="animate-spin text-lake/40" />
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={28} className="animate-spin text-lake/40" />
             </div>
           ) : patientReports.length === 0 ? (
             <EmptyState icon={Eye} message="No patient reports found." />
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {patientReports.map((report) => {
                 const owner = bookedAppointments.find((a) => a.patientAuthUserId === report.patientAuthUserId);
+                const isPdf = report.mimeType?.includes('pdf');
+                const isImage = report.mimeType?.startsWith('image/');
+                const fileLabel = isPdf ? 'PDF' : isImage ? 'Image' : 'File';
+                const fileSizeKB = report.fileSize ? (report.fileSize / 1024).toFixed(1) : null;
+
                 return (
-                  <a
-                    key={report._id}
-                    href={`http://localhost:3002${report.filePath}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group rounded-2xl border border-lake/10 bg-white p-4 shadow-sm transition hover:border-lake/30 hover:shadow-md"
-                  >
-                    <p className="font-semibold text-lake group-hover:underline">{report.title}</p>
-                    {owner ? (
-                      <p className="mt-1 text-xs font-medium text-ink/70">{owner.patientName}</p>
-                    ) : null}
-                    {report.description ? (
-                      <p className="mt-0.5 text-xs text-ink/55">{report.description}</p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-ink/40">{new Date(report.createdAt).toLocaleString()}</p>
-                  </a>
+                  <div key={report._id} className="flex flex-col overflow-hidden rounded-2xl border border-lake/10 bg-white shadow-sm transition hover:shadow-md">
+                    <div className={`h-1 w-full ${isPdf ? 'bg-red-400' : isImage ? 'bg-blue-400' : 'bg-lake'}`} />
+
+                    <div className="flex flex-1 flex-col p-5">
+                      {/* File type badge + delete */}
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
+                          isPdf ? 'bg-red-50 text-red-600' : isImage ? 'bg-blue-50 text-blue-600' : 'bg-lake/10 text-lake'
+                        }`}>
+                          <FileText size={11} /> {fileLabel}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => deletePatientReport(report._id)}
+                          disabled={loading}
+                          className="rounded-lg p-1.5 text-ink/30 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+                          title="Delete report"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      {/* Title */}
+                      <p className="mb-1 font-bold text-ink line-clamp-2">{report.title}</p>
+
+                      {/* Patient */}
+                      {owner && (
+                        <p className="mb-2 text-xs font-semibold text-lake">{owner.patientName}</p>
+                      )}
+
+                      {/* Description */}
+                      {report.description && (
+                        <p className="mb-3 text-xs text-ink/55 line-clamp-2">{report.description}</p>
+                      )}
+
+                      {/* Meta */}
+                      <div className="mt-auto space-y-0.5 text-[11px] text-ink/40">
+                        {fileSizeKB && <p>{report.fileName} · {fileSizeKB} KB</p>}
+                        <p>{new Date(report.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                      </div>
+
+                      {/* View button */}
+                      <a
+                        href={`http://localhost:3002${report.filePath}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-lake/20 bg-lake/5 py-2 text-xs font-bold text-lake transition hover:bg-lake hover:text-white"
+                      >
+                        <ExternalLink size={12} /> View Report
+                      </a>
+                    </div>
+                  </div>
                 );
               })}
             </div>
