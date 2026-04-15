@@ -172,9 +172,58 @@ const cancelMyPatientAppointment = async (req, res, next) => {
   }
 };
 
+const DOCTOR_STATUS_TRANSITIONS = {
+  booked:    ['confirmed', 'completed', 'cancelled'],
+  confirmed: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: []
+};
+
+const updateAppointmentStatusByDoctor = async (req, res, next) => {
+  try {
+    const { appointmentId } = req.params;
+    const { status } = req.body;
+
+    if (!['confirmed', 'completed', 'cancelled'].includes(status)) {
+      res.status(400);
+      throw new Error('Status must be confirmed, completed, or cancelled');
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      res.status(404);
+      throw new Error('Appointment not found');
+    }
+
+    if (appointment.doctorAuthUserId !== req.user.userId) {
+      res.status(403);
+      throw new Error('Not authorized to update this appointment');
+    }
+
+    const allowed = DOCTOR_STATUS_TRANSITIONS[appointment.status] || [];
+    if (!allowed.includes(status)) {
+      res.status(400);
+      throw new Error(`Cannot change status from "${appointment.status}" to "${status}"`);
+    }
+
+    appointment.status = status;
+    await appointment.save();
+
+    if (status === 'cancelled') {
+      await notifyAppointmentEvent('cancelled', appointment.toObject());
+    }
+
+    res.status(200).json({ message: `Appointment marked as ${status}`, appointment });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   bookAppointment,
   listMyPatientAppointments,
   listMyDoctorAppointments,
-  cancelMyPatientAppointment
+  cancelMyPatientAppointment,
+  updateAppointmentStatusByDoctor
 };

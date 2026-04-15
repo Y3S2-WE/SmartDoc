@@ -1,16 +1,85 @@
-import { useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
+import { APPOINTMENT_API_URL, PAYMENT_API_URL } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 
-function PaymentSuccessPage() {
+const LOCAL_STORAGE_KEY = 'smartdoc_pending_checkout';
+
+function PaymentSuccessPage({ session }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [showPopup, setShowPopup] = useState(Boolean(location.state?.result));
+  const [searchParams] = useSearchParams();
 
-  const result = location.state?.result || null;
+  const [result, setResult] = useState(location.state?.result || null);
+  const [showPopup, setShowPopup] = useState(Boolean(location.state?.result));
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState('');
+  const handledRef = useRef(false);
+
+  useEffect(() => {
+    // Already have result from SPA navigation (popup flow completed in CheckoutPage)
+    if (result) return;
+
+    // PayPal redirect flow: ?token=ORDER_ID&PayerID=PAYER_ID
+    const orderId = searchParams.get('token');
+    const payerId = searchParams.get('PayerID');
+
+    if (!orderId || !payerId) return;
+
+    // Guard against double-execution (React StrictMode double-invoke)
+    if (handledRef.current) return;
+    handledRef.current = true;
+
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    let draft = null;
+    if (raw) {
+      try { draft = JSON.parse(raw); } catch { /* ignore */ }
+    }
+
+    if (!draft) {
+      setError('Checkout session not found. Payment may have been processed. Please contact support with your PayPal Order ID: ' + orderId);
+      return;
+    }
+
+    const completeBooking = async () => {
+      setProcessing(true);
+      try {
+        const captureResponse = await axios.post(`${PAYMENT_API_URL}/api/payments/paypal/capture-order`, {
+          orderId
+        });
+
+        const bookingResponse = await axios.post(`${APPOINTMENT_API_URL}/book`, draft, {
+          headers: { Authorization: `Bearer ${session.token}` }
+        });
+
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+
+        const newResult = {
+          message: bookingResponse.data.message || 'Appointment booked successfully after payment.',
+          appointment: bookingResponse.data.appointment || null,
+          captureId: captureResponse.data.captureId || null,
+          orderId
+        };
+
+        setResult(newResult);
+        setShowPopup(true);
+      } catch (err) {
+        setError(
+          err.response?.data?.message ||
+            'Payment was processed but booking failed. Please contact support with PayPal Order ID: ' + orderId
+        );
+      } finally {
+        setProcessing(false);
+      }
+    };
+
+    completeBooking();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 md:px-8">
@@ -22,7 +91,17 @@ function PaymentSuccessPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {result ? (
+          {processing ? (
+            <div className="flex items-center gap-2 rounded-xl border border-lake/15 bg-white p-4 text-sm text-ink/80">
+              <Loader2 size={16} className="animate-spin text-lake" />
+              <span>Confirming payment and creating your appointment...</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-start gap-2 rounded-xl border border-ember/30 bg-ember/10 p-4 text-sm text-ember">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          ) : result ? (
             <div className="space-y-3 rounded-xl border border-lake/15 bg-white p-4 text-sm text-ink/80">
               <p className="font-semibold text-lake">{result.message}</p>
               {result.orderId ? <p>PayPal Order ID: {result.orderId}</p> : null}
@@ -32,7 +111,10 @@ function PaymentSuccessPage() {
               ) : null}
               {result.appointment?.videoRoomLink ? (
                 <p>
-                  Video Room Link: <a href={result.appointment.videoRoomLink} target="_blank" rel="noreferrer" className="font-semibold text-lake underline">Join Call</a>
+                  Video Room Link:{' '}
+                  <a href={result.appointment.videoRoomLink} target="_blank" rel="noreferrer" className="font-semibold text-lake underline">
+                    Join Call
+                  </a>
                 </p>
               ) : null}
             </div>

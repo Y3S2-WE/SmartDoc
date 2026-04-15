@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-import { AUTH_API_URL } from '../lib/api';
+import { AUTH_API_URL, PATIENT_API_URL } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -228,6 +228,17 @@ function PatientRegisterPage({ onLogin }) {
 
     try {
       const response = await axios.post(`${AUTH_API_URL}/register/patient`, form);
+
+      // Seed the patient-service profile with registration data so the
+      // dashboard displays it immediately without requiring a manual update.
+      try {
+        await axios.put(`${PATIENT_API_URL}/me/profile`, form, {
+          headers: { Authorization: `Bearer ${response.data.token}` }
+        });
+      } catch {
+        // Non-fatal: profile can be updated from the dashboard later
+      }
+
       onLogin(response.data);
       navigate('/dashboard/patient');
     } catch (error) {

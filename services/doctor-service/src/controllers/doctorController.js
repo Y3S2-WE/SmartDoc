@@ -129,6 +129,41 @@ const issueDigitalPrescription = async (req, res, next) => {
   }
 };
 
+const updateMyAvailability = async (req, res, next) => {
+  try {
+    const authUserId = req.user.userId;
+    const incoming = req.body.availabilitySchedule;
+
+    if (!Array.isArray(incoming)) {
+      res.status(400);
+      throw new Error('availabilitySchedule must be an array.');
+    }
+
+    const schedule = incoming
+      .map((entry) => {
+        const date = String(entry?.date || '').trim();
+        const timeSlots = Array.isArray(entry?.timeSlots)
+          ? [...new Set(entry.timeSlots.map((s) => String(s).trim()).filter(Boolean))]
+          : [];
+        return { date, timeSlots };
+      })
+      .filter((entry) => entry.date);
+
+    const updated = await DoctorProfile.findOneAndUpdate(
+      { authUserId },
+      { $set: { availabilitySchedule: schedule } },
+      { new: true, upsert: true }
+    );
+
+    res.status(200).json({
+      message: 'Availability saved successfully.',
+      availabilitySchedule: updated.availabilitySchedule
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listPatientUploadedReports = async (req, res, next) => {
   try {
     const patientServiceUrl = process.env.PATIENT_SERVICE_URL || 'http://localhost:3002/api/patients';
@@ -181,6 +216,7 @@ const getPublicDoctorProfile = async (req, res, next) => {
 module.exports = {
   getMyDoctorProfile,
   updateMyDoctorProfile,
+  updateMyAvailability,
   issueDigitalPrescription,
   listPatientUploadedReports,
   getPublicDoctorProfile

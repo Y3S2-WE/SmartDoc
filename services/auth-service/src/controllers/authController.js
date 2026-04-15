@@ -1,10 +1,24 @@
 const { validationResult } = require('express-validator');
+const axios = require('axios');
 const http = require('http');
 const https = require('https');
 
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const { ROLES } = require('../config/constants');
+
+const seedPatientProfile = async (user, profileData) => {
+  const patientServiceUrl = process.env.PATIENT_SERVICE_URL || 'http://localhost:3002/api/patients';
+  const token = generateToken({ userId: user._id, role: user.role });
+
+  try {
+    await axios.put(`${patientServiceUrl}/me/profile`, profileData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  } catch (err) {
+    console.warn('Patient profile sync failed:', err.response?.data?.message || err.message);
+  }
+};
 
 const parseStringList = (value) => {
   if (!value) {
@@ -179,6 +193,26 @@ const registerPatient = async (req, res, next) => {
         district,
         postalCode
       }
+    });
+
+    await seedPatientProfile(user, {
+      fullName,
+      email,
+      phoneNumber,
+      dateOfBirth,
+      gender: gender ? String(gender).toLowerCase() : '',
+      nationalId,
+      profilePhoto,
+      bloodGroup,
+      knownAllergies,
+      medicalConditions,
+      currentMedications,
+      emergencyContactName,
+      emergencyContactPhone,
+      addressLine,
+      city,
+      district,
+      postalCode
     });
 
     res.status(201).json(buildAuthResponse(user));
