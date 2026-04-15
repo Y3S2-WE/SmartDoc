@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
+  Brain,
   CalendarCheck2,
   ChevronDown,
   ChevronUp,
@@ -44,6 +46,7 @@ const initialDashboardProfile = {
 };
 
 function PatientDashboard({ session }) {
+  const navigate = useNavigate();
   const [dashboardProfile, setDashboardProfile] = useState(initialDashboardProfile);
   const [isProfileEditing, setIsProfileEditing] = useState(false);
   const [reports, setReports] = useState([]);
@@ -432,6 +435,23 @@ function PatientDashboard({ session }) {
             <Button className="mt-4 w-full" onClick={() => setIsProfileEditing(true)}>
               <UserRoundPen size={15} /> Edit Full Profile
             </Button>
+
+            {/* AI Assist Quick Link */}
+            <button
+              type="button"
+              onClick={() => navigate('/ai-assist')}
+              className="mt-3 w-full rounded-2xl border border-dashed border-lake/30 bg-gradient-to-br from-lake/5 to-blue-50 p-3 text-left transition-all hover:border-lake/60 hover:shadow-md"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-lake to-blue-700 shadow-sm">
+                  <Brain size={15} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-lake">AI Symptom Checker</p>
+                  <p className="text-[10px] text-ink/55">Get AI-powered health guidance</p>
+                </div>
+              </div>
+            </button>
           </CardContent>
         </Card>
 

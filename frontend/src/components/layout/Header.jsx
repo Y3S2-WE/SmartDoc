@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HeartPulse, ShieldPlus } from 'lucide-react';
+import { Brain, HeartPulse, ShieldPlus } from 'lucide-react';
 
 import { Button } from '../ui/button';
 
@@ -33,6 +33,15 @@ function Header({ session, onLogout }) {
         </nav>
 
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate('/ai-assist')}
+            className="hidden items-center gap-1.5 border-lake/30 bg-lake/5 text-lake hover:border-lake/60 hover:bg-lake/10 md:flex"
+          >
+            <Brain size={14} /> AI Symptom Checker
+          </Button>
+
           {session?.user ? (
             <>
               <span className="hidden text-xs font-semibold uppercase tracking-wide text-lake/80 md:inline-flex">

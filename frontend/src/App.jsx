@@ -13,6 +13,7 @@ import AppointmentsPage from './pages/Appointments';
 import CheckoutPage from './pages/CheckoutPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentCancelPage from './pages/PaymentCancelPage';
+import AIAssistPage from './pages/AIAssistPage';
 
 function App() {
 	const [session, setSession] = useState(() => {
@@ -101,6 +102,16 @@ function App() {
 					element={
 						session?.user?.role === 'admin' ? (
 							<AdminDashboard session={session} />
+						) : (
+							<Navigate to="/login" replace />
+						)
+					}
+				/>
+				<Route
+					path="/ai-assist"
+					element={
+						session?.user?.role === 'patient' ? (
+							<AIAssistPage session={session} />
 						) : (
 							<Navigate to="/login" replace />
 						)

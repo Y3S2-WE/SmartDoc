@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Activity, ArrowRight, HeartPulse, ShieldCheck, Stethoscope } from 'lucide-react';
+import { Activity, ArrowRight, Brain, HeartPulse, ShieldCheck, Stethoscope } from 'lucide-react';
 
 import { Card, CardContent } from '../components/ui/card';
 
@@ -20,8 +20,11 @@ function HomePage() {
               with SmartDoc microservices.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Link to="/register/patient" className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-lake transition hover:bg-white/90">
-                Start as Patient <ArrowRight size={14} />
+              <Link to="/ai-assist" className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-lake shadow-sm transition hover:bg-white/90">
+                <Brain size={15} /> AI Symptom Checker <ArrowRight size={14} />
+              </Link>
+              <Link to="/register/patient" className="inline-flex h-10 items-center rounded-xl border border-white/60 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20">
+                Start as Patient
               </Link>
               <Link to="/register/doctor" className="inline-flex h-10 items-center rounded-xl border border-white/60 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20">
                 Join as Doctor
