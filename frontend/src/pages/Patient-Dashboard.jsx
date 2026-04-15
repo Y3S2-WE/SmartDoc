@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
   CalendarCheck2,
-  ChevronDown,
-  ChevronUp,
   FileUp,
   HeartPulse,
   MapPin,
@@ -55,9 +53,6 @@ function PatientDashboard({ session }) {
   const [reportFile, setReportFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const [appointmentView, setAppointmentView] = useState('upcoming');
-  const [expandedAppointmentId, setExpandedAppointmentId] = useState(null);
-  const [visibleAppointmentCount, setVisibleAppointmentCount] = useState(4);
 
   const authHeader = useMemo(() => ({ Authorization: `Bearer ${session.token}` }), [session.token]);
 
@@ -73,200 +68,6 @@ function PatientDashboard({ session }) {
     return String(value);
   };
 
-  const parseAppointmentDate = (dateValue) => {
-    if (!dateValue) {
-      return null;
-    }
-
-    const parsedDate = new Date(dateValue);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return null;
-    }
-
-    return parsedDate;
-  };
-
-  const normalizeAppointmentStatus = (status) => String(status || 'pending').toLowerCase();
-
-  const isUpcomingAppointment = (item) => {
-    const status = normalizeAppointmentStatus(item.status);
-
-    if (status === 'cancelled' || status === 'completed') {
-      return false;
-    }
-
-    const date = parseAppointmentDate(item.appointmentDate);
-
-    if (!date) {
-      return true;
-    }
-
-    date.setHours(23, 59, 59, 999);
-    return date >= new Date();
-  };
-
-  const formatAppointmentDate = (dateValue) => {
-    const parsedDate = parseAppointmentDate(dateValue);
-
-    if (!parsedDate) {
-      return 'Date pending';
-    }
-
-    return parsedDate.toLocaleDateString();
-  };
-
-  const getAppointmentStatusMeta = (status) => {
-    const normalizedStatus = normalizeAppointmentStatus(status);
-
-    if (normalizedStatus === 'completed') {
-      return {
-        status: normalizedStatus,
-        label: 'Completed',
-        className: 'border border-emerald-200 bg-emerald-100 text-emerald-700'
-      };
-    }
-
-    if (normalizedStatus === 'cancelled') {
-      return {
-        status: normalizedStatus,
-        label: 'Cancelled',
-        className: 'border border-rose-200 bg-rose-100 text-rose-700'
-      };
-    }
-
-    if (normalizedStatus === 'confirmed') {
-      return {
-        status: normalizedStatus,
-        label: 'Confirmed',
-        className: 'border border-blue-200 bg-blue-100 text-blue-700'
-      };
-    }
-
-    if (normalizedStatus === 'pending') {
-      return {
-        status: normalizedStatus,
-        label: 'Pending',
-        className: 'border border-amber-200 bg-amber-100 text-amber-700'
-      };
-    }
-
-    return {
-      status: normalizedStatus,
-      label: normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1),
-      className: 'border border-slate-200 bg-slate-100 text-slate-700'
-    };
-  };
-
-  const sortedAppointments = useMemo(() => {
-    return [...appointments].sort((a, b) => {
-      const dateA = parseAppointmentDate(a.appointmentDate);
-      const dateB = parseAppointmentDate(b.appointmentDate);
-
-      if (!dateA && !dateB) {
-        return 0;
-      }
-
-      if (!dateA) {
-        return 1;
-      }
-
-      if (!dateB) {
-        return -1;
-      }
-
-      return dateA - dateB;
-    });
-  }, [appointments]);
-
-  const appointmentCollections = useMemo(() => {
-    const upcoming = [];
-    const completed = [];
-    const cancelled = [];
-
-    sortedAppointments.forEach((item) => {
-      const status = normalizeAppointmentStatus(item.status);
-
-      if (status === 'cancelled') {
-        cancelled.push(item);
-        return;
-      }
-
-      if (status === 'completed') {
-        completed.push(item);
-        return;
-      }
-
-      if (isUpcomingAppointment(item)) {
-        upcoming.push(item);
-        return;
-      }
-
-      completed.push(item);
-    });
-
-    return {
-      upcoming,
-      completed: [...completed].sort((a, b) => {
-        const dateA = parseAppointmentDate(a.appointmentDate);
-        const dateB = parseAppointmentDate(b.appointmentDate);
-
-        if (!dateA && !dateB) {
-          return 0;
-        }
-
-        if (!dateA) {
-          return 1;
-        }
-
-        if (!dateB) {
-          return -1;
-        }
-
-        return dateB - dateA;
-      }),
-      cancelled: [...cancelled].sort((a, b) => {
-        const dateA = parseAppointmentDate(a.appointmentDate);
-        const dateB = parseAppointmentDate(b.appointmentDate);
-
-        if (!dateA && !dateB) {
-          return 0;
-        }
-
-        if (!dateA) {
-          return 1;
-        }
-
-        if (!dateB) {
-          return -1;
-        }
-
-        return dateB - dateA;
-      }),
-      all: sortedAppointments
-    };
-  }, [sortedAppointments]);
-
-  const appointmentTabs = useMemo(
-    () => [
-      { key: 'upcoming', label: 'Upcoming', count: appointmentCollections.upcoming.length },
-      { key: 'completed', label: 'Completed', count: appointmentCollections.completed.length },
-      { key: 'cancelled', label: 'Cancelled', count: appointmentCollections.cancelled.length },
-      { key: 'all', label: 'All', count: appointmentCollections.all.length }
-    ],
-    [appointmentCollections]
-  );
-
-  const visibleAppointments = useMemo(() => {
-    const activeAppointments = appointmentCollections[appointmentView] || [];
-    return activeAppointments.slice(0, visibleAppointmentCount);
-  }, [appointmentCollections, appointmentView, visibleAppointmentCount]);
-
-  useEffect(() => {
-    setVisibleAppointmentCount(4);
-    setExpandedAppointmentId(null);
-  }, [appointmentView]);
-
   const loadPatientDashboard = async () => {
     try {
       const [profileRes, reportsRes, prescriptionsRes, appointmentsRes] = await Promise.all([
@@ -277,27 +78,24 @@ function PatientDashboard({ session }) {
       ]);
 
       const profile = profileRes.data.profile || {};
-      const registrationProfile = session.user.patientProfile || {};
-      const resolveDateValue = (value) => (value ? String(value).slice(0, 10) : '');
-
       setDashboardProfile({
         fullName: profile.fullName || session.user.fullName || '',
         email: profile.email || session.user.email || '',
         phoneNumber: profile.phoneNumber || session.user.phoneNumber || '',
-        dateOfBirth: resolveDateValue(profile.dateOfBirth) || resolveDateValue(registrationProfile.dateOfBirth),
-        gender: profile.gender || registrationProfile.gender || '',
-        nationalId: profile.nationalId || registrationProfile.nationalId || '',
-        profilePhoto: profile.profilePhoto || registrationProfile.profilePhoto || '',
-        bloodGroup: profile.bloodGroup || registrationProfile.bloodGroup || '',
-        knownAllergies: normalizeArrayField(profile.knownAllergies || registrationProfile.knownAllergies),
-        medicalConditions: normalizeArrayField(profile.medicalConditions || registrationProfile.medicalConditions),
-        currentMedications: normalizeArrayField(profile.currentMedications || registrationProfile.currentMedications),
-        emergencyContactName: profile.emergencyContactName || registrationProfile.emergencyContactName || '',
-        emergencyContactPhone: profile.emergencyContactPhone || registrationProfile.emergencyContactPhone || '',
-        addressLine: profile.addressLine || registrationProfile.addressLine || '',
-        city: profile.city || registrationProfile.city || '',
-        district: profile.district || registrationProfile.district || '',
-        postalCode: profile.postalCode || registrationProfile.postalCode || ''
+        dateOfBirth: profile.dateOfBirth ? String(profile.dateOfBirth).slice(0, 10) : '',
+        gender: profile.gender || '',
+        nationalId: profile.nationalId || '',
+        profilePhoto: profile.profilePhoto || '',
+        bloodGroup: profile.bloodGroup || '',
+        knownAllergies: normalizeArrayField(profile.knownAllergies),
+        medicalConditions: normalizeArrayField(profile.medicalConditions),
+        currentMedications: normalizeArrayField(profile.currentMedications),
+        emergencyContactName: profile.emergencyContactName || '',
+        emergencyContactPhone: profile.emergencyContactPhone || '',
+        addressLine: profile.addressLine || '',
+        city: profile.city || '',
+        district: profile.district || '',
+        postalCode: profile.postalCode || ''
       });
 
       setReports(reportsRes.data.reports || []);
@@ -508,131 +306,47 @@ function PatientDashboard({ session }) {
             </div>
 
             <div className="rounded-2xl border border-white/45 bg-white/60 p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <p className="flex items-center gap-2 text-sm font-semibold text-lake">
-                  <CalendarCheck2 size={15} /> Booked Appointments
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {appointmentTabs.map((tab) => (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => setAppointmentView(tab.key)}
-                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                        appointmentView === tab.key
-                          ? 'border-lake bg-lake text-white'
-                          : 'border-lake/25 bg-white text-lake hover:border-lake/45'
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] ${
-                          appointmentView === tab.key ? 'bg-white/25 text-white' : 'bg-lake/10 text-lake'
-                        }`}
-                      >
-                        {tab.count}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-                <StatTag label="Upcoming" value={String(appointmentCollections.upcoming.length)} />
-                <StatTag label="Completed" value={String(appointmentCollections.completed.length)} />
-                <StatTag label="Cancelled" value={String(appointmentCollections.cancelled.length)} />
-                <StatTag label="Total" value={String(appointmentCollections.all.length)} />
-              </div>
-
-              <div className="space-y-3">
-                {visibleAppointments.map((item) => {
-                  const statusMeta = getAppointmentStatusMeta(item.status);
-                  const isExpanded = expandedAppointmentId === item._id;
-                  const canCancel = statusMeta.status !== 'cancelled' && statusMeta.status !== 'completed';
-
-                  return (
-                    <div key={item._id} className="rounded-xl border border-lake/15 bg-white p-3 text-sm shadow-sm">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">
-                            Appointment #{item.appointmentNumber || '-'}
-                          </p>
-                          <p className="font-semibold text-lake">Dr. {item.doctorName || 'Doctor'}</p>
-                          <p className="text-xs text-ink/70">{formatAppointmentDate(item.appointmentDate)} at {item.appointmentTimeSlot || 'Time pending'}</p>
-                        </div>
-                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusMeta.className}`}>
-                          {statusMeta.label}
-                        </span>
-                      </div>
-
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs text-ink/70">{item.appointmentType === 'video' ? 'Video Consultation' : 'In-person Consultation'}</p>
-                        <div className="flex flex-wrap items-center gap-2">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-lake">
+                <CalendarCheck2 size={15} /> Booked Appointments
+              </p>
+              <div className="space-y-2">
+                {appointments.slice(0, 5).map((item) => (
+                  <div key={item._id} className="rounded-lg border border-lake/10 bg-white p-2 text-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">
+                      Appointment #{item.appointmentNumber || '-'}
+                    </p>
+                    <p className="font-semibold text-lake">Dr. {item.doctorName}</p>
+                    <p className="text-xs text-ink/70">{item.specialization || 'General'}</p>
+                    <p className="text-xs text-ink/70">{item.hospitalOrClinicName || 'Hospital / Clinic not provided'}</p>
+                    <p className="text-xs text-ink/70">
+                      {item.appointmentDate} at {item.appointmentTimeSlot} ({item.appointmentType})
+                    </p>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">Status: {item.status}</p>
+                      <div className="flex items-center gap-2">
+                        {item.appointmentType === 'video' && item.videoRoomLink && item.status !== 'cancelled' ? (
+                          <Button asChild type="button" size="sm" variant="secondary">
+                            <a href={item.videoRoomLink} target="_blank" rel="noreferrer">
+                              <Video size={14} /> Join Call
+                            </a>
+                          </Button>
+                        ) : null}
+                        {item.status !== 'cancelled' ? (
                           <Button
                             type="button"
                             size="sm"
-                            variant="ghost"
-                            onClick={() => setExpandedAppointmentId(isExpanded ? null : item._id)}
+                            variant="outline"
+                            onClick={() => cancelAppointment(item._id)}
+                            disabled={loading}
                           >
-                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            {isExpanded ? 'Hide Details' : 'View Details'}
+                            Cancel
                           </Button>
-                          {item.appointmentType === 'video' && item.videoRoomLink && statusMeta.status !== 'cancelled' ? (
-                            <Button asChild type="button" size="sm" variant="secondary">
-                              <a href={item.videoRoomLink} target="_blank" rel="noreferrer">
-                                <Video size={14} /> Join Call
-                              </a>
-                            </Button>
-                          ) : null}
-                          {canCancel ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => cancelAppointment(item._id)}
-                              disabled={loading}
-                            >
-                              Cancel
-                            </Button>
-                          ) : null}
-                        </div>
+                        ) : null}
                       </div>
-
-                      {isExpanded ? (
-                        <div className="mt-3 grid gap-2 rounded-lg border border-lake/10 bg-lake/5 p-3 text-xs text-ink/75 md:grid-cols-2">
-                          <p>
-                            <span className="font-semibold text-ink/80">Specialization:</span> {item.specialization || 'General'}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-ink/80">Clinic:</span> {item.hospitalOrClinicName || 'Hospital / Clinic not provided'}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-ink/80">Appointment Date:</span> {formatAppointmentDate(item.appointmentDate)}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-ink/80">Time Slot:</span> {item.appointmentTimeSlot || 'Time pending'}
-                          </p>
-                        </div>
-                      ) : null}
                     </div>
-                  );
-                })}
-
-                {(appointmentCollections[appointmentView] || []).length > visibleAppointmentCount ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setVisibleAppointmentCount((previous) => previous + 4)}
-                  >
-                    Show More Appointments
-                  </Button>
-                ) : null}
-
+                  </div>
+                ))}
                 {appointments.length === 0 ? <p className="text-sm text-ink/65">No appointments booked yet.</p> : null}
-                {appointments.length > 0 && visibleAppointments.length === 0 ? (
-                  <p className="text-sm text-ink/65">No appointments in this category.</p>
-                ) : null}
               </div>
             </div>
           </CardContent>
