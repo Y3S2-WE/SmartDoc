@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { CalendarCheck2, Search, Stethoscope, Video } from 'lucide-react';
 
-import { AUTH_API_URL, DOCTOR_API_URL } from '../lib/api';
+import { AUTH_API_URL, DOCTOR_API_URL, PATIENT_API_URL } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -18,8 +18,16 @@ const initialForm = {
 	appointmentTimeSlot: ''
 };
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phoneRegex = /^(0\d{9}|\+94\d{9})$/;
+
 function AppointmentsPage({ session }) {
 	const navigate = useNavigate();
+	const minSelectableDate = useMemo(() => {
+		const now = new Date();
+		const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+		return local.toISOString().split('T')[0];
+	}, []);
 
 	const [approvedDoctors, setApprovedDoctors] = useState([]);
 	const [doctorProfiles, setDoctorProfiles] = useState({});
@@ -32,11 +40,21 @@ function AppointmentsPage({ session }) {
 		...initialForm,
 		patientName: session.user.fullName || '',
 		patientEmail: session.user.email || '',
-		patientPhoneNumber: session.user.phoneNumber || ''
+		patientPhoneNumber: session.user.phoneNumber || '',
+		patientAddress: session.user.addressLine || session.user.address || session.user.patientProfile?.addressLine || ''
 	});
 
 	const [loading, setLoading] = useState(false);
 	const [feedback, setFeedback] = useState('');
+
+	const handleSearchNameChange = (event) => {
+		const value = event.target.value;
+
+		// Allow only letters and spaces for doctor name search.
+		if (/^[A-Za-z\s]*$/.test(value)) {
+			setSearchName(value);
+		}
+	};
 
 	useEffect(() => {
 		const loadApprovedDoctors = async () => {
@@ -70,6 +88,26 @@ function AppointmentsPage({ session }) {
 		loadApprovedDoctors();
 	}, []);
 
+	useEffect(() => {
+		const loadPatientAddress = async () => {
+			try {
+				const response = await axios.get(`${PATIENT_API_URL}/me/profile`, {
+					headers: { Authorization: `Bearer ${session.token}` }
+				});
+				const profile = response.data.profile || {};
+				const address = profile.addressLine || '';
+
+				if (address) {
+					setForm((prev) => ({ ...prev, patientAddress: address }));
+				}
+			} catch {
+				// Keep session fallback address when profile request fails.
+			}
+		};
+
+		loadPatientAddress();
+	}, [session.token]);
+
 	const specializationOptions = useMemo(() => {
 		const values = approvedDoctors
 			.map((doctor) => doctor.doctorProfile?.specialization || doctorProfiles[doctor._id]?.specialization || '')
@@ -96,9 +134,22 @@ function AppointmentsPage({ session }) {
 	const selectedDoctor = approvedDoctors.find((doctor) => doctor._id === selectedDoctorId) || null;
 	const selectedDoctorProfile = selectedDoctor ? doctorProfiles[selectedDoctor._id] || {} : null;
 
-	const selectedAvailability = selectedDoctorProfile?.availabilitySchedule || [];
+	const selectedAvailability = (selectedDoctorProfile?.availabilitySchedule || []).filter(
+		(item) => item?.date && item.date >= minSelectableDate
+	);
 	const selectedDateAvailability = selectedAvailability.find((item) => item.date === form.appointmentDate);
 	const availableSlots = selectedDateAvailability?.timeSlots || [];
+
+	useEffect(() => {
+		if (!form.appointmentDate) {
+			return;
+		}
+
+		const isAvailableDate = selectedAvailability.some((item) => item.date === form.appointmentDate);
+		if (!isAvailableDate) {
+			setForm((prev) => ({ ...prev, appointmentDate: '', appointmentTimeSlot: '' }));
+		}
+	}, [form.appointmentDate, selectedAvailability]);
 
 	const handleBookNow = (doctorId) => {
 		setSelectedDoctorId(doctorId);
@@ -109,6 +160,19 @@ function AppointmentsPage({ session }) {
 	const proceedToCheckout = (event) => {
 		event.preventDefault();
 
+		const normalizedEmail = form.patientEmail.trim();
+		const normalizedPhone = form.patientPhoneNumber.trim();
+
+		if (!normalizedEmail || !emailRegex.test(normalizedEmail)) {
+			setFeedback('Please enter a valid email address (example: name@email.com).');
+			return;
+		}
+
+		if (!normalizedPhone || !phoneRegex.test(normalizedPhone)) {
+			setFeedback('Please enter a valid phone number: 10 digits starting with 0 or +94 followed by 9 digits.');
+			return;
+		}
+
 		if (!selectedDoctor || !selectedDoctorProfile) {
 			setFeedback('Please select a doctor first.');
 			return;
@@ -116,6 +180,11 @@ function AppointmentsPage({ session }) {
 
 		if (!form.appointmentDate || !form.appointmentTimeSlot) {
 			setFeedback('Please pick available date and time slot.');
+			return;
+		}
+
+		if (form.appointmentDate < minSelectableDate) {
+			setFeedback('Past dates are not available for booking.');
 			return;
 		}
 
@@ -133,8 +202,8 @@ function AppointmentsPage({ session }) {
 			appointmentDate: form.appointmentDate,
 			appointmentTimeSlot: form.appointmentTimeSlot,
 			patientName: form.patientName,
-			patientEmail: form.patientEmail,
-			patientPhoneNumber: form.patientPhoneNumber,
+			patientEmail: normalizedEmail,
+			patientPhoneNumber: normalizedPhone,
 			patientAddress: form.patientAddress
 		};
 
@@ -159,7 +228,7 @@ function AppointmentsPage({ session }) {
 					</CardHeader>
 					<CardContent className="space-y-3">
 						<div className="grid gap-2 md:grid-cols-2">
-							<Input placeholder="Search by doctor name" value={searchName} onChange={(e) => setSearchName(e.target.value)} />
+							<Input placeholder="Search by doctor name" value={searchName} onChange={handleSearchNameChange} />
 							<select
 								value={specializationFilter}
 								onChange={(e) => setSpecializationFilter(e.target.value)}
@@ -187,27 +256,34 @@ function AppointmentsPage({ session }) {
 									const photo = doctor.doctorProfile?.profilePhoto || profile.profilePhoto || '';
 
 									return (
-										<div key={doctor._id} className="rounded-xl border border-lake/10 bg-white p-3">
-											<div className="flex items-center justify-between gap-3">
-												<div className="flex items-center gap-3">
+										<div
+											key={doctor._id}
+											className="rounded-2xl border border-lake/15 bg-white p-4 shadow-sm transition hover:border-lake/25 hover:shadow-md"
+										>
+											<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+												<div className="flex items-start gap-4">
 													{photo ? (
-														<img src={photo} alt="Doctor" className="h-11 w-11 rounded-xl object-cover ring-1 ring-lake/20" />
+														<img src={photo} alt="Doctor" className="h-24 w-24 rounded-2xl object-cover ring-2 ring-lake/20" />
 													) : (
-														<div className="flex h-11 w-11 items-center justify-center rounded-xl bg-lake text-xs font-bold text-white">
+														<div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-lake text-lg font-bold text-white">
 															{(doctor.fullName || 'D').slice(0, 2).toUpperCase()}
 														</div>
 													)}
-													<div>
-														<p className="font-semibold text-lake">{doctor.fullName}</p>
-														<p className="text-xs text-ink/70">{doctor.doctorProfile?.specialization || profile.specialization || 'Specialization not set'}</p>
-														<p className="text-xs text-ink/65">{doctor.doctorProfile?.hospitalOrClinicName || profile.hospitalOrClinicName || 'Hospital not set'}</p>
-														<p className="text-xs font-semibold text-ember">
+													<div className="space-y-1.5">
+														<p className="text-base font-bold tracking-tight text-lake">{doctor.fullName}</p>
+														<p className="inline-flex rounded-full bg-lake/10 px-2.5 py-1 text-xs font-semibold text-lake">
+															{doctor.doctorProfile?.specialization || profile.specialization || 'Specialization not set'}
+														</p>
+														<p className="text-sm text-ink/75">{doctor.doctorProfile?.hospitalOrClinicName || profile.hospitalOrClinicName || 'Hospital not set'}</p>
+														<p className="text-sm font-semibold text-ember">
 															Fee: LKR {doctor.doctorProfile?.consultationFee || profile.consultationFee || 0}
 														</p>
 													</div>
 												</div>
 
-												<Button onClick={() => handleBookNow(doctor._id)}>Book Now</Button>
+												<Button className="sm:min-w-[130px]" onClick={() => handleBookNow(doctor._id)}>
+													Book Now
+												</Button>
 											</div>
 										</div>
 									);
@@ -228,20 +304,40 @@ function AppointmentsPage({ session }) {
 							<p className="text-sm text-ink/65">Select a doctor from the left list to continue booking.</p>
 						) : (
 							<>
-								<div className="mb-4 rounded-xl border border-lake/15 bg-white p-3">
-									<p className="text-sm font-semibold text-lake">{selectedDoctor.fullName}</p>
-									<p className="text-xs text-ink/70">{selectedDoctor.doctorProfile?.specialization || selectedDoctorProfile.specialization || 'Specialization not set'}</p>
-									<p className="text-xs text-ink/70">{selectedDoctor.doctorProfile?.hospitalOrClinicName || selectedDoctorProfile.hospitalOrClinicName || 'Hospital not set'}</p>
-									<p className="text-xs font-semibold text-ember">
-										Channelling Fee: LKR {selectedDoctor.doctorProfile?.consultationFee || selectedDoctorProfile.consultationFee || 0}
-									</p>
+								<div className="mb-4 rounded-2xl border border-lake/20 bg-white p-4 shadow-sm">
+									<div className="flex items-start gap-4">
+										{selectedDoctor.doctorProfile?.profilePhoto || selectedDoctorProfile.profilePhoto ? (
+											<img
+												src={selectedDoctor.doctorProfile?.profilePhoto || selectedDoctorProfile.profilePhoto}
+												alt="Selected doctor"
+												className="h-24 w-24 rounded-2xl object-cover ring-2 ring-lake/20"
+											/>
+										) : (
+											<div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-lake text-lg font-bold text-white">
+												{(selectedDoctor.fullName || 'D').slice(0, 2).toUpperCase()}
+											</div>
+										)}
+
+										<div className="space-y-1.5">
+											<p className="text-base font-bold tracking-tight text-lake">{selectedDoctor.fullName}</p>
+											<p className="inline-flex rounded-full bg-lake/10 px-2.5 py-1 text-xs font-semibold text-lake">
+												{selectedDoctor.doctorProfile?.specialization || selectedDoctorProfile.specialization || 'Specialization not set'}
+											</p>
+											<p className="text-sm text-ink/75">
+												{selectedDoctor.doctorProfile?.hospitalOrClinicName || selectedDoctorProfile.hospitalOrClinicName || 'Hospital not set'}
+											</p>
+											<p className="text-sm font-semibold text-ember">
+												Channelling Fee: LKR {selectedDoctor.doctorProfile?.consultationFee || selectedDoctorProfile.consultationFee || 0}
+											</p>
+										</div>
+									</div>
 								</div>
 
 								<form onSubmit={proceedToCheckout} className="space-y-3">
 									<div className="grid gap-3 md:grid-cols-2">
 										<Field label="Patient Name"><Input value={form.patientName} onChange={(e) => setForm({ ...form, patientName: e.target.value })} required /></Field>
 										<Field label="Email"><Input type="email" value={form.patientEmail} onChange={(e) => setForm({ ...form, patientEmail: e.target.value })} required /></Field>
-										<Field label="Tel Number"><Input value={form.patientPhoneNumber} onChange={(e) => setForm({ ...form, patientPhoneNumber: e.target.value })} required /></Field>
+										<Field label="Tel Number"><Input type="tel" placeholder="07XXXXXXXX or +947XXXXXXXX" value={form.patientPhoneNumber} onChange={(e) => setForm({ ...form, patientPhoneNumber: e.target.value })} pattern="^(0[0-9]{9}|\+94[0-9]{9})$" title="Use 10 digits starting with 0, or +94 followed by 9 digits." required /></Field>
 										<Field label="Address"><Input value={form.patientAddress} onChange={(e) => setForm({ ...form, patientAddress: e.target.value })} required /></Field>
 									</div>
 
