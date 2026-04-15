@@ -89,6 +89,42 @@ function PatientDashboard({ session }) {
 
   const normalizeAppointmentStatus = (status) => String(status || 'pending').toLowerCase();
 
+  const parsePrescriptionDate = (dateValue) => {
+    if (!dateValue) {
+      return null;
+    }
+
+    const parsedDate = new Date(dateValue);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return null;
+    }
+
+    return parsedDate;
+  };
+
+  const formatPrescriptionDate = (dateValue, fallback = 'Date not available') => {
+    const parsedDate = parsePrescriptionDate(dateValue);
+
+    if (!parsedDate) {
+      return fallback;
+    }
+
+    return parsedDate.toLocaleDateString();
+  };
+
+  const normalizeListField = (value) => {
+    if (Array.isArray(value)) {
+      return value.filter(Boolean).join(', ');
+    }
+
+    if (!value) {
+      return '';
+    }
+
+    return String(value);
+  };
+
   const isUpcomingAppointment = (item) => {
     const status = normalizeAppointmentStatus(item.status);
 
@@ -261,6 +297,27 @@ function PatientDashboard({ session }) {
     const activeAppointments = appointmentCollections[appointmentView] || [];
     return activeAppointments.slice(0, visibleAppointmentCount);
   }, [appointmentCollections, appointmentView, visibleAppointmentCount]);
+
+  const visiblePrescriptions = useMemo(() => {
+    return [...prescriptions].sort((a, b) => {
+      const dateA = parsePrescriptionDate(a.issuedAt || a.createdAt);
+      const dateB = parsePrescriptionDate(b.issuedAt || b.createdAt);
+
+      if (!dateA && !dateB) {
+        return 0;
+      }
+
+      if (!dateA) {
+        return 1;
+      }
+
+      if (!dateB) {
+        return -1;
+      }
+
+      return dateB - dateA;
+    });
+  }, [prescriptions]);
 
   useEffect(() => {
     setVisibleAppointmentCount(4);
@@ -484,24 +541,60 @@ function PatientDashboard({ session }) {
               </div>
 
               <div className="rounded-2xl border border-white/45 bg-white/60 p-4">
-                <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-lake">
-                  <Pill size={15} /> Recent Prescriptions
-                </p>
-                <div className="space-y-2">
-                  {prescriptions.slice(0, 4).map((item) => (
-                    <button
-                      type="button"
-                      key={item._id}
-                      onClick={() => setSelectedPrescription(item)}
-                      className="w-full rounded-lg border border-lake/10 bg-white p-2 text-left text-sm transition hover:border-lake/30"
-                    >
-                      <p className="flex items-center gap-2 font-semibold text-lake">
-                        <Stethoscope size={14} /> {item.doctorName}
-                      </p>
-                      <p className="text-xs text-ink/70">{item.diagnosis || 'Diagnosis not specified'}</p>
-                      <p className="mt-1 text-[11px] font-semibold text-lake/70">Click to view full details</p>
-                    </button>
-                  ))}
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-lake">
+                    <Pill size={15} /> Prescriptions
+                  </p>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {visiblePrescriptions.slice(0, 6).map((item) => {
+                    const medicationsCount = Array.isArray(item.medications)
+                      ? item.medications.filter(Boolean).length
+                      : normalizeListField(item.medications)
+                          .split(',')
+                          .map((entry) => entry.trim())
+                          .filter(Boolean).length;
+
+                    return (
+                      <button
+                        type="button"
+                        key={item._id}
+                        onClick={() => setSelectedPrescription(item)}
+                        className="w-full rounded-xl border border-lake/10 bg-white p-3 text-left text-sm transition hover:border-lake/35 hover:shadow-sm"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="flex items-center gap-2 font-semibold text-lake">
+                              <Stethoscope size={14} /> Dr. {item.doctorName || 'Doctor'}
+                            </p>
+                            <p className="text-[11px] text-ink/60">
+                              Issued {formatPrescriptionDate(item.issuedAt || item.createdAt)}
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-lake/20 bg-lake/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-lake/80">
+                            {item.templateName || 'Custom'}
+                          </span>
+                        </div>
+
+                        <p className="mt-2 text-xs text-ink/75">{item.diagnosis || 'Diagnosis not specified'}</p>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-semibold text-ink/70">
+                            {medicationsCount} medication{medicationsCount === 1 ? '' : 's'}
+                          </span>
+                          {item.followUpDate ? (
+                            <span className="rounded-full bg-lake/10 px-2 py-0.5 text-[10px] font-semibold text-lake/80">
+                              Follow-up {formatPrescriptionDate(item.followUpDate)}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <p className="mt-2 text-[11px] font-semibold text-lake/75">View full details</p>
+                      </button>
+                    );
+                  })}
+
                   {prescriptions.length === 0 ? <p className="text-sm text-ink/65">No prescriptions found.</p> : null}
                 </div>
               </div>
@@ -691,38 +784,45 @@ function PatientDashboard({ session }) {
                 <X size={16} /> Close
               </Button>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <DetailRow label="Doctor" value={selectedPrescription.doctorName || 'Doctor'} />
+            <CardContent className="space-y-4 text-sm">
+              <div className="grid gap-3 rounded-2xl border border-lake/15 bg-lake/5 p-3 md:grid-cols-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/55">Doctor</p>
+                  <p className="mt-1 text-sm font-semibold text-lake">Dr. {selectedPrescription.doctorName || 'Doctor'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/55">Issued On</p>
+                  <p className="mt-1 text-sm font-medium text-ink/80">
+                    {formatPrescriptionDate(selectedPrescription.issuedAt || selectedPrescription.createdAt)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/55">Template</p>
+                  <p className="mt-1 text-sm font-medium text-ink/80">{selectedPrescription.templateName || 'Custom prescription'}</p>
+                </div>
+              </div>
+
               <DetailRow label="Diagnosis" value={selectedPrescription.diagnosis || 'Not specified'} />
-              <DetailRow
-                label="Medications"
-                value={Array.isArray(selectedPrescription.medications) ? selectedPrescription.medications.join(', ') : selectedPrescription.medications || 'Not specified'}
-              />
               <DetailRow label="Dosage Instructions" value={selectedPrescription.dosageInstructions || 'Not specified'} />
-              <DetailRow
-                label="Recommended Tests"
-                value={
-                  Array.isArray(selectedPrescription.testsRecommended)
-                    ? selectedPrescription.testsRecommended.join(', ') || 'Not specified'
-                    : selectedPrescription.testsRecommended || 'Not specified'
-                }
-              />
+              <DetailRow label="Notes" value={selectedPrescription.notes || 'No notes added'} />
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow
+                  label="Medications"
+                  value={normalizeListField(selectedPrescription.medications) || 'Not specified'}
+                />
+                <DetailRow
+                  label="Recommended Tests"
+                  value={normalizeListField(selectedPrescription.testsRecommended) || 'Not specified'}
+                />
+              </div>
+
               <DetailRow
                 label="Follow-Up Date"
                 value={
                   selectedPrescription.followUpDate
-                    ? new Date(selectedPrescription.followUpDate).toLocaleDateString()
+                    ? formatPrescriptionDate(selectedPrescription.followUpDate)
                     : 'Not specified'
-                }
-              />
-              <DetailRow label="Template" value={selectedPrescription.templateName || 'Custom prescription'} />
-              <DetailRow label="Notes" value={selectedPrescription.notes || 'No notes added'} />
-              <DetailRow
-                label="Issued On"
-                value={
-                  selectedPrescription.issuedAt || selectedPrescription.createdAt
-                    ? new Date(selectedPrescription.issuedAt || selectedPrescription.createdAt).toLocaleString()
-                    : 'Not available'
                 }
               />
             </CardContent>
