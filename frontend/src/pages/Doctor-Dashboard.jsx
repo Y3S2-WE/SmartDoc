@@ -77,10 +77,10 @@ const prescriptionTemplates = [
 ];
 
 const STATUS_CONFIG = {
-  booked:    { label: 'Booked',    chip: 'bg-blue-50 text-blue-600 border-blue-200',    dot: 'bg-blue-500',    bar: 'bg-blue-500'    },
-  confirmed: { label: 'Confirmed', chip: 'bg-teal-50 text-teal-700 border-teal-200',    dot: 'bg-teal-500',    bar: 'bg-teal-500'    },
+  booked: { label: 'Booked', chip: 'bg-blue-50 text-blue-600 border-blue-200', dot: 'bg-blue-500', bar: 'bg-blue-500' },
+  confirmed: { label: 'Confirmed', chip: 'bg-teal-50 text-teal-700 border-teal-200', dot: 'bg-teal-500', bar: 'bg-teal-500' },
   completed: { label: 'Completed', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', bar: 'bg-emerald-500' },
-  cancelled: { label: 'Cancelled', chip: 'bg-red-50 text-red-600 border-red-200',       dot: 'bg-red-400',     bar: 'bg-red-400'     },
+  cancelled: { label: 'Cancelled', chip: 'bg-red-50 text-red-600 border-red-200', dot: 'bg-red-400', bar: 'bg-red-400' },
 };
 
 function DoctorDashboard({ session }) {
@@ -452,11 +452,10 @@ function DoctorDashboard({ session }) {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition ${
-                activeTab === tab.id
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition ${activeTab === tab.id
                   ? 'bg-lake text-white shadow-sm'
                   : 'text-ink/60 hover:bg-white/70 hover:text-lake'
-              }`}
+                }`}
             >
               <Icon size={15} />
               {tab.label}
@@ -472,7 +471,7 @@ function DoctorDashboard({ session }) {
           {/* ── Status summary strip ── */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { key: 'booked',    label: 'Booked',    icon: Circle },
+              { key: 'booked', label: 'Booked', icon: Circle },
               { key: 'confirmed', label: 'Confirmed', icon: CheckCircle2 },
               { key: 'completed', label: 'Completed', icon: CheckCircle2 },
               { key: 'cancelled', label: 'Cancelled', icon: XCircle },
@@ -485,9 +484,8 @@ function DoctorDashboard({ session }) {
                   key={key}
                   type="button"
                   onClick={() => setStatusFilter(active ? 'all' : key)}
-                  className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition hover:shadow-md ${
-                    active ? `${cfg.chip} border-current shadow-sm` : 'border-white/60 bg-white hover:border-lake/20'
-                  }`}
+                  className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition hover:shadow-md ${active ? `${cfg.chip} border-current shadow-sm` : 'border-white/60 bg-white hover:border-lake/20'
+                    }`}
                 >
                   <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${active ? 'bg-current/10' : 'bg-ink/5'}`}>
                     <Icon size={16} className={active ? 'opacity-80' : 'text-ink/40'} />
@@ -802,9 +800,8 @@ function DoctorDashboard({ session }) {
               <button
                 type="button"
                 onClick={() => { setReportPatientFilter(''); setReportSearch(''); fetchPatientReports(''); }}
-                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                  !reportPatientFilter && !reportSearch ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
-                }`}
+                className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${!reportPatientFilter && !reportSearch ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
+                  }`}
               >
                 All Patients
               </button>
@@ -819,9 +816,8 @@ function DoctorDashboard({ session }) {
                     key={a.patientAuthUserId}
                     type="button"
                     onClick={() => { setReportPatientFilter(a.patientAuthUserId); setReportSearch(''); fetchPatientReports(a.patientAuthUserId); }}
-                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                      reportPatientFilter === a.patientAuthUserId ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
-                    }`}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${reportPatientFilter === a.patientAuthUserId ? 'border-lake bg-lake text-white shadow-sm' : 'border-lake/20 bg-white text-ink/60 hover:border-lake/40 hover:text-lake'
+                      }`}
                   >
                     {a.patientName}
                   </button>
@@ -849,67 +845,66 @@ function DoctorDashboard({ session }) {
                   );
                 })
                 .map((report) => {
-                const owner = bookedAppointments.find((a) => a.patientAuthUserId === report.patientAuthUserId);
-                const isPdf = report.mimeType?.includes('pdf');
-                const isImage = report.mimeType?.startsWith('image/');
-                const fileLabel = isPdf ? 'PDF' : isImage ? 'Image' : 'File';
-                const fileSizeKB = report.fileSize ? (report.fileSize / 1024).toFixed(1) : null;
+                  const owner = bookedAppointments.find((a) => a.patientAuthUserId === report.patientAuthUserId);
+                  const isPdf = report.mimeType?.includes('pdf');
+                  const isImage = report.mimeType?.startsWith('image/');
+                  const fileLabel = isPdf ? 'PDF' : isImage ? 'Image' : 'File';
+                  const fileSizeKB = report.fileSize ? (report.fileSize / 1024).toFixed(1) : null;
 
-                return (
-                  <div key={report._id} className="flex flex-col overflow-hidden rounded-2xl border border-lake/10 bg-white shadow-sm transition hover:shadow-md">
-                    <div className={`h-1 w-full ${isPdf ? 'bg-red-400' : isImage ? 'bg-blue-400' : 'bg-lake'}`} />
+                  return (
+                    <div key={report._id} className="flex flex-col overflow-hidden rounded-2xl border border-lake/10 bg-white shadow-sm transition hover:shadow-md">
+                      <div className={`h-1 w-full ${isPdf ? 'bg-red-400' : isImage ? 'bg-blue-400' : 'bg-lake'}`} />
 
-                    <div className="flex flex-1 flex-col p-5">
-                      {/* File type badge + delete */}
-                      <div className="mb-3 flex items-start justify-between gap-2">
-                        <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
-                          isPdf ? 'bg-red-50 text-red-600' : isImage ? 'bg-blue-50 text-blue-600' : 'bg-lake/10 text-lake'
-                        }`}>
-                          <FileText size={11} /> {fileLabel}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => deletePatientReport(report._id)}
-                          disabled={loading}
-                          className="rounded-lg p-1.5 text-ink/30 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
-                          title="Delete report"
+                      <div className="flex flex-1 flex-col p-5">
+                        {/* File type badge + delete */}
+                        <div className="mb-3 flex items-start justify-between gap-2">
+                          <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${isPdf ? 'bg-red-50 text-red-600' : isImage ? 'bg-blue-50 text-blue-600' : 'bg-lake/10 text-lake'
+                            }`}>
+                            <FileText size={11} /> {fileLabel}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => deletePatientReport(report._id)}
+                            disabled={loading}
+                            className="rounded-lg p-1.5 text-ink/30 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+                            title="Delete report"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        {/* Title */}
+                        <p className="mb-1 font-bold text-ink line-clamp-2">{report.title}</p>
+
+                        {/* Patient */}
+                        {owner && (
+                          <p className="mb-2 text-xs font-semibold text-lake">{owner.patientName}</p>
+                        )}
+
+                        {/* Description */}
+                        {report.description && (
+                          <p className="mb-3 text-xs text-ink/55 line-clamp-2">{report.description}</p>
+                        )}
+
+                        {/* Meta */}
+                        <div className="mt-auto space-y-0.5 text-[11px] text-ink/40">
+                          {fileSizeKB && <p>{report.fileName} · {fileSizeKB} KB</p>}
+                          <p>{new Date(report.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                        </div>
+
+                        {/* View button */}
+                        <a
+                          href={`http://localhost:3002${report.filePath}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-lake/20 bg-lake/5 py-2 text-xs font-bold text-lake transition hover:bg-lake hover:text-white"
                         >
-                          <Trash2 size={14} />
-                        </button>
+                          <ExternalLink size={12} /> View Report
+                        </a>
                       </div>
-
-                      {/* Title */}
-                      <p className="mb-1 font-bold text-ink line-clamp-2">{report.title}</p>
-
-                      {/* Patient */}
-                      {owner && (
-                        <p className="mb-2 text-xs font-semibold text-lake">{owner.patientName}</p>
-                      )}
-
-                      {/* Description */}
-                      {report.description && (
-                        <p className="mb-3 text-xs text-ink/55 line-clamp-2">{report.description}</p>
-                      )}
-
-                      {/* Meta */}
-                      <div className="mt-auto space-y-0.5 text-[11px] text-ink/40">
-                        {fileSizeKB && <p>{report.fileName} · {fileSizeKB} KB</p>}
-                        <p>{new Date(report.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
-                      </div>
-
-                      {/* View button */}
-                      <a
-                        href={`http://localhost:3002${report.filePath}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-lake/20 bg-lake/5 py-2 text-xs font-bold text-lake transition hover:bg-lake hover:text-white"
-                      >
-                        <ExternalLink size={12} /> View Report
-                      </a>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
         </div>
@@ -974,11 +969,10 @@ function DoctorDashboard({ session }) {
                         key={min}
                         type="button"
                         onClick={() => setAvForm({ ...avForm, interval: min })}
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
-                          avForm.interval === min
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${avForm.interval === min
                             ? 'border-lake bg-lake text-white shadow-sm'
                             : 'border-lake/20 bg-white text-ink/55 hover:border-lake/50 hover:text-lake'
-                        }`}
+                          }`}
                       >
                         {min} min
                       </button>
@@ -1112,9 +1106,6 @@ function DoctorDashboard({ session }) {
                 <Input value={profile.availabilityNotes} onChange={(e) => setProfile({ ...profile, availabilityNotes: e.target.value })} />
               </FormField>
 
-<<<<<<< HEAD
-              <div className="col-span-full mt-2 flex justify-end gap-3 border-t border-lake/10 pt-4">
-=======
               <div className="col-span-full mt-1 rounded-2xl border border-lake/15 bg-white/70 p-4">
                 <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-lake">
                   <CalendarDays size={16} /> Appointment Availability Schedule
@@ -1187,7 +1178,6 @@ function DoctorDashboard({ session }) {
               </div>
 
               <div className="col-span-full mt-2 flex justify-end gap-2">
->>>>>>> dev
                 <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
                 <Button onClick={saveProfile} disabled={loading}>
                   {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
