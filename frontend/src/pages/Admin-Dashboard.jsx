@@ -111,92 +111,9 @@ function DoctorApprovalTab({ session }) {
     }
   };
 
-  const updateUserStatus = async (userId, isActive) => {
-    setActionLoadingKey(`status-${userId}`);
-    setFeedback('');
-
-    try {
-      const response = await axios.patch(
-        `${AUTH_API_URL}/admin/users/${userId}/status`,
-        { isActive },
-        { headers: authHeader }
-      );
-
-      setFeedback(response.data.message || 'User status updated.');
-      await loadAdminData();
-    } catch (error) {
-      setFeedback(error.response?.data?.message || 'User status update failed.');
-    } finally {
-      setActionLoadingKey('');
-    }
-  };
-
-  const updateUserRole = async (userId, role) => {
-    setActionLoadingKey(`role-${userId}`);
-    setFeedback('');
-
-    try {
-      const response = await axios.patch(
-        `${AUTH_API_URL}/admin/users/${userId}/role`,
-        { role },
-        { headers: authHeader }
-      );
-
-      setFeedback(response.data.message || 'User role updated.');
-      await loadAdminData();
-    } catch (error) {
-      setFeedback(error.response?.data?.message || 'User role update failed.');
-    } finally {
-      setActionLoadingKey('');
-    }
-  };
-
-  const removeUser = async (user) => {
-    const shouldDelete = window.confirm(`Delete account for ${user.fullName || user.email}? This action cannot be undone.`);
-    if (!shouldDelete) {
-      return;
-    }
-
-    setActionLoadingKey(`delete-${user._id}`);
-    setFeedback('');
-
-    try {
-      const response = await axios.delete(`${AUTH_API_URL}/admin/users/${user._id}`, { headers: authHeader });
-
-      setFeedback(response.data.message || 'User removed.');
-      await loadAdminData();
-    } catch (error) {
-      setFeedback(error.response?.data?.message || 'Unable to remove user account.');
-    } finally {
-      setActionLoadingKey('');
-    }
-  };
-
   const toggleExpand = (doctorId) => {
     setExpandedDoctorIds((prev) => ({ ...prev, [doctorId]: !prev[doctorId] }));
   };
-
-  const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
-      const matchesSearch =
-        !search.trim() ||
-        (user.fullName || '').toLowerCase().includes(search.trim().toLowerCase()) ||
-        (user.email || '').toLowerCase().includes(search.trim().toLowerCase()) ||
-        (user.phoneNumber || '').toLowerCase().includes(search.trim().toLowerCase());
-
-      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && user.isActive) ||
-        (statusFilter === 'inactive' && !user.isActive);
-
-      return matchesSearch && matchesRole && matchesStatus;
-    });
-  }, [users, search, roleFilter, statusFilter]);
-
-  const doctors = useMemo(() => users.filter((user) => user.role === 'doctor'), [users]);
-
-  const roles = ['patient', 'doctor', 'admin'];
 
   return (
     <>
@@ -205,140 +122,6 @@ function DoctorApprovalTab({ session }) {
           {feedback}
         </p>
       ) : null}
-
-      <Card className="mb-5 bg-white/55">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lake">
-            <BarChart3 size={18} /> Platform Operations Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {overview ? (
-            <div className="grid gap-3 md:grid-cols-3">
-              <StatCard label="Total Users" value={overview.users?.total ?? 0} icon={<UsersRound size={15} />} />
-              <StatCard label="Active Users" value={overview.users?.active ?? 0} icon={<BadgeCheck size={15} />} />
-              <StatCard label="Inactive Users" value={overview.users?.inactive ?? 0} icon={<BadgeX size={15} />} />
-              <StatCard label="Patients" value={overview.users?.byRole?.patient ?? 0} icon={<UserCog size={15} />} />
-              <StatCard label="Doctors" value={overview.users?.byRole?.doctor ?? 0} icon={<Stethoscope size={15} />} />
-              <StatCard label="Admins" value={overview.users?.byRole?.admin ?? 0} icon={<ShieldCheck size={15} />} />
-              <StatCard label="Doctor Pending" value={overview.doctorVerification?.pending ?? 0} icon={<ChevronDown size={15} />} />
-              <StatCard label="Doctor Approved" value={overview.doctorVerification?.approved ?? 0} icon={<BadgeCheck size={15} />} />
-              <StatCard label="Doctor Rejected" value={overview.doctorVerification?.rejected ?? 0} icon={<BadgeX size={15} />} />
-            </div>
-          ) : (
-            <p className="text-sm text-ink/65">{loading ? 'Loading overview...' : 'Overview data unavailable.'}</p>
-          )}
-
-          <div className="mt-4 flex justify-end">
-            <Button variant="outline" onClick={loadAdminData} disabled={loading || !!actionLoadingKey}>
-              <RefreshCw size={14} /> Refresh Dashboard
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-5 bg-white/55">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lake">
-            <UserCog size={18} /> User Account Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-3 grid gap-2 md:grid-cols-[1.4fr_1fr_1fr_120px]">
-            <Input
-              placeholder="Search by name, email, or phone"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            <select
-              value={roleFilter}
-              onChange={(event) => setRoleFilter(event.target.value)}
-              className="h-10 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake"
-            >
-              <option value="all">All Roles</option>
-              {roles.map((role) => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-10 rounded-xl border border-lake/20 bg-white px-3 text-sm text-ink/90 outline-none transition focus:border-lake"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearch('');
-                setRoleFilter('all');
-                setStatusFilter('all');
-              }}
-            >
-              Clear
-            </Button>
-          </div>
-
-          <div className="overflow-x-auto rounded-2xl border border-lake/15 bg-white/70">
-            <div className="min-w-[1060px]">
-              <div className="grid grid-cols-[1.2fr_1.5fr_1fr_1fr_1.2fr_260px] gap-2 border-b border-lake/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink/65">
-                <p>Name</p>
-                <p>Email</p>
-                <p>Phone</p>
-                <p>Status</p>
-                <p>Role</p>
-                <p>Actions</p>
-              </div>
-
-              {filteredUsers.length === 0 ? (
-                <p className="px-3 py-4 text-sm text-ink/65">{loading ? 'Loading users...' : 'No users found for selected filters.'}</p>
-              ) : (
-                filteredUsers.map((user) => {
-                  const isBusy = !!actionLoadingKey;
-                  return (
-                    <div key={user._id} className="grid grid-cols-[1.2fr_1.5fr_1fr_1fr_1.2fr_260px] gap-2 border-b border-lake/10 px-3 py-3 text-sm last:border-b-0">
-                      <p className="font-semibold text-lake">{user.fullName}</p>
-                      <p className="truncate text-ink/80">{user.email}</p>
-                      <p className="text-ink/80">{user.phoneNumber || '-'}</p>
-                      <StatusPill status={user.isActive ? 'active' : 'inactive'} />
-                      <select
-                        value={user.role}
-                        disabled={isBusy}
-                        onChange={(event) => updateUserRole(user._id, event.target.value)}
-                        className="h-9 rounded-lg border border-lake/20 bg-white px-2 text-xs font-semibold text-lake outline-none transition focus:border-lake"
-                      >
-                        {roles.map((role) => (
-                          <option key={role} value={role}>{role}</option>
-                        ))}
-                      </select>
-                      <div className="flex items-center gap-2 whitespace-nowrap">
-                        <Button
-                          size="sm"
-                          variant={user.isActive ? 'outline' : 'default'}
-                          onClick={() => updateUserStatus(user._id, !user.isActive)}
-                          disabled={isBusy}
-                        >
-                          {user.isActive ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => removeUser(user)}
-                          disabled={isBusy || user._id === session.user.id}
-                        >
-                          <Trash2 size={13} /> Remove
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card className="bg-white/55">
         <CardHeader>
@@ -426,6 +209,7 @@ function DoctorApprovalTab({ session }) {
     </>
   );
 }
+
 
 // ─── Health Documents Tab ─────────────────────────────────────────────────────
 
