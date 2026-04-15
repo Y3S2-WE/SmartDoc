@@ -7,11 +7,6 @@ const {
   login,
   getCurrentUser,
   listUsers,
-  updateUserAccountStatus,
-  updateUserRole,
-  removeUserAccount,
-  getAdminPlatformOverview,
-  getAdminFinancialTransactions,
   listApprovedDoctors,
   verifyDoctor
 } = require('../controllers/authController');
@@ -119,29 +114,7 @@ router.get('/me', protect, getCurrentUser);
 
 router.get('/doctors/approved', listApprovedDoctors);
 
-router.get('/admin/overview', protect, authorize(ROLES.ADMIN), getAdminPlatformOverview);
-
-router.get('/admin/financial-transactions', protect, authorize(ROLES.ADMIN), getAdminFinancialTransactions);
-
 router.get('/admin/users', protect, authorize(ROLES.ADMIN), listUsers);
-
-router.patch(
-  '/admin/users/:userId/status',
-  protect,
-  authorize(ROLES.ADMIN),
-  [body('isActive').isBoolean().withMessage('isActive must be boolean')],
-  updateUserAccountStatus
-);
-
-router.patch(
-  '/admin/users/:userId/role',
-  protect,
-  authorize(ROLES.ADMIN),
-  [body('role').isIn(Object.values(ROLES)).withMessage('Valid role is required')],
-  updateUserRole
-);
-
-router.delete('/admin/users/:userId', protect, authorize(ROLES.ADMIN), removeUserAccount);
 
 router.patch('/admin/doctors/:userId/verify', protect, authorize(ROLES.ADMIN), verifyDoctor);
 
