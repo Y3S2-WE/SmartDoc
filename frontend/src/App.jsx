@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import Header from './components/layout/Header';
+import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import PatientRegisterPage from './pages/PatientRegisterPage';
@@ -34,90 +35,93 @@ function App() {
 	};
 
 	return (
-		<div className="min-h-screen">
+		<div className="min-h-screen flex flex-col">
 			<Header session={session} onLogout={handleLogout} />
-			<Routes>
-				<Route path="/" element={<HomePage />} />
-				<Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-				<Route path="/register/patient" element={<PatientRegisterPage onLogin={handleLogin} />} />
-				<Route path="/register/doctor" element={<DoctorRegisterPage onLogin={handleLogin} />} />
-				<Route
-					path="/dashboard/patient"
-					element={
-						session?.user?.role === 'patient' ? (
-							<PatientDashboard session={session} />
-						) : (
-							<Navigate to="/login" replace />
-						)
-					}
-				/>
-				<Route
-					path="/appointments"
-					element={
-						session?.user?.role === 'patient' ? (
-							<AppointmentsPage session={session} />
-						) : (
-							<Navigate to="/login" replace />
-						)
-					}
-				/>
-				<Route
-					path="/checkout"
-					element={
-						session?.user?.role === 'patient' ? (
-							<CheckoutPage session={session} />
-						) : (
-							<Navigate to="/login" replace />
-						)
-					}
-				/>
-				<Route
-					path="/payment/success"
-					element={
-						session?.user?.role === 'patient' ? (
-							<PaymentSuccessPage session={session} />
-						) : (
-							<Navigate to="/login" replace />
-						)
-					}
-				/>
-				<Route
-					path="/payment/cancel"
-					element={
-						session?.user?.role === 'patient' ? <PaymentCancelPage /> : <Navigate to="/login" replace />
-					}
-				/>
-				<Route
-					path="/dashboard/doctor"
-					element={
-						session?.user?.role === 'doctor' ? (
-							<DoctorDashboard session={session} />
-						) : (
-							<Navigate to="/login" replace />
-						)
-					}
-				/>
-				<Route
-					path="/dashboard/admin"
-					element={
-						session?.user?.role === 'admin' ? (
-							<AdminDashboard session={session} />
-						) : (
-							<Navigate to="/login" replace />
-						)
-					}
-				/>
-				<Route
-					path="/ai-assist"
-					element={
-						session?.user?.role === 'patient' ? (
-							<AIAssistPage session={session} />
-						) : (
-							<Navigate to="/login" replace />
-						)
-					}
-				/>
-			</Routes>
+			<main className="flex-1">
+				<Routes>
+					<Route path="/" element={<HomePage />} />
+					<Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+					<Route path="/register/patient" element={<PatientRegisterPage onLogin={handleLogin} />} />
+					<Route path="/register/doctor" element={<DoctorRegisterPage onLogin={handleLogin} />} />
+					<Route
+						path="/dashboard/patient"
+						element={
+							session?.user?.role === 'patient' ? (
+								<PatientDashboard session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/appointments"
+						element={
+							session?.user?.role === 'patient' ? (
+								<AppointmentsPage session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/checkout"
+						element={
+							session?.user?.role === 'patient' ? (
+								<CheckoutPage session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/payment/success"
+						element={
+							session?.user?.role === 'patient' ? (
+								<PaymentSuccessPage session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/payment/cancel"
+						element={
+							session?.user?.role === 'patient' ? <PaymentCancelPage /> : <Navigate to="/login" replace />
+						}
+					/>
+					<Route
+						path="/dashboard/doctor"
+						element={
+							session?.user?.role === 'doctor' ? (
+								<DoctorDashboard session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/dashboard/admin"
+						element={
+							session?.user?.role === 'admin' ? (
+								<AdminDashboard session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/ai-assist"
+						element={
+							session?.user?.role === 'patient' ? (
+								<AIAssistPage session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+				</Routes>
+			</main>
+			<Footer />
 		</div>
 	);
 }
