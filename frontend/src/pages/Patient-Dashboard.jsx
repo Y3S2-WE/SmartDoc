@@ -347,18 +347,17 @@ function PatientDashboard({ session }) {
         {/* ── FEEDBACK TOAST ─────────────────────────────────────────── */}
         {feedback.message ? (
           <div
-            className={`mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium backdrop-blur-xl transition-all ${
-              feedback.type === 'success'
+            className={`mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium backdrop-blur-xl transition-all ${feedback.type === 'success'
                 ? 'border-emerald-200/60 bg-emerald-50/80 text-emerald-800'
                 : feedback.type === 'error'
-                ? 'border-rose-200/60 bg-rose-50/80 text-rose-800'
-                : 'border-blue-200/60 bg-blue-50/80 text-blue-800'
-            }`}
+                  ? 'border-rose-200/60 bg-rose-50/80 text-rose-800'
+                  : 'border-blue-200/60 bg-blue-50/80 text-blue-800'
+              }`}
             style={{ animation: 'slideUpPop 0.3s ease' }}
           >
             {feedback.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" /> :
-             feedback.type === 'error' ? <AlertCircle size={16} className="text-rose-600 flex-shrink-0" /> :
-             <AlertTriangle size={16} className="text-blue-600 flex-shrink-0" />}
+              feedback.type === 'error' ? <AlertCircle size={16} className="text-rose-600 flex-shrink-0" /> :
+                <AlertTriangle size={16} className="text-blue-600 flex-shrink-0" />}
             <span>{feedback.message}</span>
             <button
               type="button"
@@ -425,7 +424,7 @@ function PatientDashboard({ session }) {
             >
               <button
                 type="button"
-                onClick={() => navigate('/appointments/book')}
+                onClick={() => navigate('/appointments')}
                 className="group flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold text-white transition-all hover:-translate-y-1"
                 style={{
                   background: 'linear-gradient(135deg, #0052FF, #4D7CFF)',
@@ -631,9 +630,8 @@ function PatientDashboard({ session }) {
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
-                className={`mb-5 overflow-hidden rounded-2xl border-2 border-dashed transition-all ${
-                  isDragging ? 'border-blue-400 bg-blue-50/80 scale-[1.01]' : 'border-slate-200 bg-white/60 hover:border-blue-300 hover:bg-blue-50/40'
-                }`}
+                className={`mb-5 overflow-hidden rounded-2xl border-2 border-dashed transition-all ${isDragging ? 'border-blue-400 bg-blue-50/80 scale-[1.01]' : 'border-slate-200 bg-white/60 hover:border-blue-300 hover:bg-blue-50/40'
+                  }`}
               >
                 <div className="p-6">
                   <p className="mb-3 text-sm font-semibold text-slate-700">Upload Medical Report</p>
@@ -657,9 +655,8 @@ function PatientDashboard({ session }) {
                   </div>
 
                   {/* File Drop Target */}
-                  <label className={`mt-3 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl py-8 transition-all ${
-                    reportFile ? 'border border-emerald-200 bg-emerald-50' : 'border border-dashed border-blue-200 bg-gradient-to-br from-blue-50/50 to-teal-50/40 hover:from-blue-100/60 hover:to-teal-100/40'
-                  }`}>
+                  <label className={`mt-3 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl py-8 transition-all ${reportFile ? 'border border-emerald-200 bg-emerald-50' : 'border border-dashed border-blue-200 bg-gradient-to-br from-blue-50/50 to-teal-50/40 hover:from-blue-100/60 hover:to-teal-100/40'
+                    }`}>
                     {reportFile ? (
                       <>
                         <CheckCircle2 size={28} className="text-emerald-500" />
@@ -1122,9 +1119,8 @@ function PatientDashboard({ session }) {
 
 function HeroBadge({ icon, label, accent }) {
   return (
-    <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur ${
-      accent ? 'border-rose-300/40 bg-rose-400/20 text-rose-100' : 'border-white/20 bg-white/12 text-white/85'
-    }`}>
+    <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur ${accent ? 'border-rose-300/40 bg-rose-400/20 text-rose-100' : 'border-white/20 bg-white/12 text-white/85'
+      }`}>
       {icon} {label}
     </div>
   );

@@ -41,7 +41,7 @@ function useInView(threshold = 0.15) {
 
 /* ─── Hero image slides ───────────────────────────────────────────── */
 const heroSlides = [
-  { src: '/hero_slide_1.png', label: 'Smart Consultation' },
+  { src: '/hero_slide_1.jpg', label: 'Smart Consultation' },
   { src: '/hero_slide_2.png', label: 'AI Diagnosis' },
   { src: '/hero_slide_3.png', label: 'Patient Care' },
 ];
@@ -84,8 +84,6 @@ const testimonials = [
 /*  HOMEPAGE COMPONENT                                                  */
 /* ──────────────────────────────────────────────────────────────────── */
 export default function HomePage() {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMsg, setChatMsg] = useState('');
   const [symptomInput, setSymptomInput] = useState('');
   const [statsRef, statsInView] = useInView(0.2);
   const [featuresRef, featuresInView] = useInView(0.1);
@@ -368,15 +366,15 @@ export default function HomePage() {
             <div className="hp-ai-widget">
               <div className="hp-ai-widget-header">
                 <Bot size={16} style={{ color: '#818CF8' }} />
-                <span>SmartDoc AI Assistant</span>
+                <span>AI Symptom Checker</span>
                 <span className="hp-live-dot" style={{ marginLeft: 'auto' }} />
               </div>
               <div className="hp-ai-widget-body">
                 <div className="hp-ai-msg hp-ai-msg--ai">
-                  Hello! Describe your symptoms and I'll help identify possible conditions.
+                  Choose up to 20 symptoms or add your ow
                 </div>
                 <div className="hp-ai-msg hp-ai-msg--user">
-                  I have a persistent headache, fatigue, and mild fever for 3 days.
+                  Select symptoms from the catalogue or add custom ones
                 </div>
                 <div className="hp-ai-msg hp-ai-msg--ai">
                   <p style={{ margin: 0 }}>Based on your symptoms, possible conditions include:</p>
@@ -572,40 +570,14 @@ export default function HomePage() {
       {/* FLOATING CHATBOT                                            */}
       {/* ════════════════════════════════════════════════════════════ */}
       <div className="hp-chatbot-wrap">
-        {chatOpen && (
-          <div className="hp-chatbot-box">
-            <div className="hp-chatbot-header">
-              <Bot size={16} />
-              <span>SmartDoc AI</span>
-              <button onClick={() => setChatOpen(false)} className="hp-chatbot-close">
-                <X size={14} />
-              </button>
-            </div>
-            <div className="hp-chatbot-body">
-              <div className="hp-ai-msg hp-ai-msg--ai" style={{ borderRadius: '12px' }}>
-                👋 Hi! I'm SmartDoc's AI assistant. How can I help you today?
-              </div>
-            </div>
-            <div className="hp-chatbot-footer">
-              <input
-                value={chatMsg}
-                onChange={(e) => setChatMsg(e.target.value)}
-                placeholder="Ask me anything…"
-              />
-              <button type="button" className="hp-ai-send">
-                <Send size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-        <button
+        <Link
+          to="/ai-assist"
           className="hp-chatbot-fab"
-          onClick={() => setChatOpen((v) => !v)}
-          aria-label="Open AI chat"
+          aria-label="Open AI Checker"
         >
           <Bot size={24} />
           <span className="hp-live-dot" style={{ position: 'absolute', top: 6, right: 6 }} />
-        </button>
+        </Link>
       </div>
     </div>
   );

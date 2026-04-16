@@ -90,6 +90,7 @@ function DoctorDashboard({ session }) {
   const [pageLoading, setPageLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
   const [activeTab, setActiveTab] = useState('appointments');
+  const [mounted, setMounted] = useState(false);
 
   const [prescriptionForm, setPrescriptionForm] = useState(initialPrescription);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -154,6 +155,7 @@ function DoctorDashboard({ session }) {
 
   useEffect(() => {
     loadDoctorDashboard();
+    setMounted(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -381,7 +383,38 @@ function DoctorDashboard({ session }) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+    <div
+      className="relative min-h-screen"
+      style={{
+        background: 'linear-gradient(135deg, #F0F4FF 0%, #F8FAFC 40%, #EEF7F7 100%)',
+        animation: mounted ? 'fadeInUp 0.6s ease both' : 'none'
+      }}
+    >
+      {/* Background decorations */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 0 }}>
+        <div style={{
+          position: 'absolute', width: 600, height: 600, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(0,82,255,0.06) 0%, transparent 70%)',
+          top: -150, left: -150, animation: 'blobFloat 14s ease-in-out infinite alternate'
+        }} />
+        <div style={{
+          position: 'absolute', width: 500, height: 500, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(31,122,122,0.08) 0%, transparent 70%)',
+          top: '30%', right: -100, animation: 'blobFloat 10s ease-in-out infinite alternate-reverse'
+        }} />
+        <div style={{
+          position: 'absolute', width: 400, height: 400, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(77,124,255,0.05) 0%, transparent 70%)',
+          bottom: '5%', left: '35%'
+        }} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'linear-gradient(rgba(15,42,68,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(15,42,68,0.03) 1px, transparent 1px)',
+          backgroundSize: '48px 48px'
+        }} />
+      </div>
+
+      <div className="relative mx-auto max-w-7xl px-4 py-8 md:px-8" style={{ zIndex: 1 }}>
 
       {/* Feedback */}
       {feedback ? (
@@ -1117,6 +1150,7 @@ function DoctorDashboard({ session }) {
           </Card>
         </div>
       )}
+    </div>
     </div>
   );
 }
