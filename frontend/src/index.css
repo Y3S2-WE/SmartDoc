@@ -1476,3 +1476,221 @@ h1, h2, h3, h4, h5 {
   .hp-step-connector { display: none; }
   .hp-step-content { padding: 0; }
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PATIENT DASHBOARD — PREMIUM UI SYSTEM
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ── GLASS CARD SYSTEM ─────────────────────────────────────────────── */
+.pd-glass {
+  background: rgba(255, 255, 255, 0.70);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(15, 42, 68, 0.07), 0 1px 6px rgba(0,82,255,0.04);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+.pd-glass:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 48px rgba(15, 42, 68, 0.12), 0 4px 16px rgba(0,82,255,0.08);
+}
+
+/* ── HERO BANNER ───────────────────────────────────────────────────── */
+.pd-hero {
+  background: linear-gradient(135deg, #0F2A44 0%, #134E5E 55%, #1F7A7A 100%);
+  border-radius: 28px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 24px 80px rgba(15, 42, 68, 0.30), 0 8px 32px rgba(0,82,255,0.14);
+  animation: fadeInUp 0.7s ease both;
+}
+.pd-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 60%, rgba(77, 124, 255, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(31, 122, 122, 0.28) 0%, transparent 50%);
+  pointer-events: none;
+}
+.pd-hero-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.15;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ── METRIC CARDS ──────────────────────────────────────────────────── */
+.pd-metric-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  padding: 1.1rem;
+  box-shadow: 0 2px 12px rgba(15,42,68,0.07);
+  border: 1px solid rgba(255,255,255,0.60);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+.pd-metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 48px rgba(15,42,68,0.12), 0 4px 16px rgba(0,82,255,0.10);
+}
+.pd-metric-top-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 20px 20px 0 0;
+}
+
+/* ── APPOINTMENT CARD ──────────────────────────────────────────────── */
+.pd-appt-card {
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 42, 68, 0.08);
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(15,42,68,0.06);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  animation: slideUpPop 0.35s ease both;
+}
+.pd-appt-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 36px rgba(15,42,68,0.12);
+}
+
+/* ── UPLOAD ZONE ───────────────────────────────────────────────────── */
+.pd-dropzone {
+  border: 2px dashed rgba(0, 82, 255, 0.20);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(248, 250, 255, 0.8), rgba(240, 249, 249, 0.6));
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+.pd-dropzone:hover, .pd-dropzone--active {
+  border-color: rgba(0, 82, 255, 0.45);
+  background: linear-gradient(135deg, rgba(235, 242, 255, 0.9), rgba(225, 245, 245, 0.8));
+  transform: scale(1.01);
+}
+
+/* ── AI CARD ───────────────────────────────────────────────────────── */
+.pd-ai-card {
+  background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #312E81 100%);
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 8px 40px rgba(99, 102, 241, 0.30);
+  animation: fadeInUp 0.6s ease both 0.35s;
+}
+.pd-ai-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.25) 0%, transparent 60%);
+  pointer-events: none;
+}
+.pd-ai-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(139, 92, 246, 0.20);
+  border-radius: 24px;
+  pointer-events: none;
+}
+/* Animated gradient border on AI card */
+@keyframes gradBorderSpin {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── PROGRESS BAR ──────────────────────────────────────────────────── */
+.pd-progress-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--c-accent), var(--c-teal));
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(0,82,255,0.30);
+}
+
+/* ── BADGE PILL ────────────────────────────────────────────────────── */
+.pd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 100px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+.pd-badge--blue   { background: rgba(0,82,255,0.10);  color: #2563EB; border-color: rgba(0,82,255,0.18); }
+.pd-badge--teal   { background: rgba(31,122,122,0.10); color: #0F766E; border-color: rgba(31,122,122,0.18); }
+.pd-badge--violet { background: rgba(124,58,237,0.10); color: #7C3AED; border-color: rgba(124,58,237,0.18); }
+.pd-badge--emerald{ background: rgba(5,150,105,0.10);  color: #059669; border-color: rgba(5,150,105,0.18); }
+.pd-badge--rose   { background: rgba(244,63,94,0.10);  color: #E11D48; border-color: rgba(244,63,94,0.18); }
+.pd-badge--amber  { background: rgba(245,158,11,0.10); color: #D97706; border-color: rgba(245,158,11,0.20); }
+
+/* ── STATUS DOTS ───────────────────────────────────────────────────── */
+.pd-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pd-status-dot--blue    { background: #3B82F6; box-shadow: 0 0 0 0 rgba(59,130,246,0.5); animation: liveGlow 2s ease-in-out infinite; }
+.pd-status-dot--emerald { background: #10B981; }
+.pd-status-dot--rose    { background: #F43F5E; }
+.pd-status-dot--amber   { background: #F59E0B; animation: liveGlow 2s ease-in-out infinite; }
+
+/* ── DASHBOARD BACKGROUND ──────────────────────────────────────────── */
+.pd-bg {
+  background: linear-gradient(135deg, #F0F4FF 0%, #F8FAFC 40%, #EEF7F7 100%);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* ── SECTION WRAPPER ───────────────────────────────────────────────── */
+.pd-section {
+  background: rgba(255, 255, 255, 0.70);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 24px;
+  padding: 1.4rem;
+  box-shadow: 0 4px 24px rgba(15, 42, 68, 0.06);
+}
+
+/* ── SIDEBAR PROFILE CARD ──────────────────────────────────────────── */
+.pd-profile-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 28px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 32px rgba(15, 42, 68, 0.10), 0 2px 8px rgba(0,82,255,0.06);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+.pd-profile-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px rgba(15, 42, 68, 0.14);
+}
+
+/* ── RESPONSIVE ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .pd-hero { border-radius: 20px; }
+  .pd-glass { border-radius: 18px; }
+  .pd-section { border-radius: 18px; padding: 1rem; }
+  .pd-metric-card { border-radius: 16px; }
+}
+
+@media (max-width: 480px) {
+  .pd-hero { border-radius: 16px; }
+}
