@@ -6,6 +6,7 @@ AI-Enabled Smart Healthcare Appointment & Telemedicine Platform using Microservi
 
 ```
 SmartDoc/
+├── frontend/                 (Vite + React + Tailwind)
 ├── services/
 │   ├── auth-service/          (Port: 3001)
 │   ├── patient-service/       (Port: 3002)
@@ -44,6 +45,8 @@ Install all dependencies for all services:
 npm run install:all
 ```
 
+This also installs dependencies for the root frontend app.
+
 Or install dependencies manually for each service:
 
 ```bash
@@ -64,7 +67,15 @@ cd ../telemedicine-service && npm install
 npm run dev:all
 ```
 
-This will start all services with auto-reload on file changes.
+This will start the frontend and all services with auto-reload on file changes.
+
+#### Run Frontend Only
+
+```bash
+npm run dev:frontend
+```
+
+Frontend runs on: `http://localhost:5173`
 
 #### Run All Services (Production Mode)
 
@@ -158,6 +169,51 @@ curl http://localhost:3006/health
 # Telemedicine Service
 curl http://localhost:3007/health
 ```
+
+## Auth Service (Implemented)
+
+### Core Features
+
+- Separate registration routes/forms for **Patient** and **Doctor**
+- Single login portal for **Patient / Doctor / Admin**
+- JWT-based authentication
+- Role-based authorization middleware
+- Seeded admin account
+
+### Auth API Endpoints
+
+```bash
+# Register Patient
+POST http://localhost:3001/api/auth/register/patient
+
+# Register Doctor
+POST http://localhost:3001/api/auth/register/doctor
+
+# Login (all roles)
+POST http://localhost:3001/api/auth/login
+
+# Current logged user (Bearer token)
+GET  http://localhost:3001/api/auth/me
+
+# Admin only - list users
+GET  http://localhost:3001/api/auth/admin/users
+
+# Admin only - verify doctor
+PATCH http://localhost:3001/api/auth/admin/doctors/:userId/verify
+```
+
+### Auth Service Environment Setup
+
+Create `.env` in `services/auth-service` using `services/auth-service/.env.example`.
+
+Default seeded admin credentials:
+
+- Email: `admin@smartdoc.com`
+- Password: `Admin@123`
+
+### MongoDB Note
+
+This auth service uses a separate database name (`smartdoc_auth`) via `MONGODB_DB_NAME` to support service-level database separation.
 
 ## Features (To Be Implemented)
 

@@ -1,0 +1,129 @@
+import { useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+
+import Header from './components/layout/Header';
+import Footer from './components/layout/Footer';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import PatientRegisterPage from './pages/PatientRegisterPage';
+import DoctorRegisterPage from './pages/DoctorRegisterPage';
+import PatientDashboard from './pages/Patient-Dashboard';
+import DoctorDashboard from './pages/Doctor-Dashboard';
+import AdminDashboard from './pages/Admin-Dashboard';
+import AppointmentsPage from './pages/Appointments';
+import CheckoutPage from './pages/CheckoutPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import PaymentCancelPage from './pages/PaymentCancelPage';
+import AIAssistPage from './pages/AIAssistPage';
+
+function App() {
+	const [session, setSession] = useState(() => {
+		const stored = localStorage.getItem('smartdoc_auth_session');
+		return stored ? JSON.parse(stored) : null;
+	});
+
+	const handleLogin = (payload) => {
+		const nextSession = { token: payload.token, user: payload.user };
+		setSession(nextSession);
+		localStorage.setItem('smartdoc_auth_session', JSON.stringify(nextSession));
+	};
+
+	const handleLogout = () => {
+		setSession(null);
+		localStorage.removeItem('smartdoc_auth_session');
+		localStorage.removeItem('smartdoc_pending_checkout');
+	};
+
+	return (
+		<div className="min-h-screen flex flex-col">
+			<Header session={session} onLogout={handleLogout} />
+			<main className="flex-1">
+				<Routes>
+					<Route path="/" element={<HomePage />} />
+					<Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+					<Route path="/register/patient" element={<PatientRegisterPage onLogin={handleLogin} />} />
+					<Route path="/register/doctor" element={<DoctorRegisterPage onLogin={handleLogin} />} />
+					<Route
+						path="/dashboard/patient"
+						element={
+							session?.user?.role === 'patient' ? (
+								<PatientDashboard session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/appointments"
+						element={
+							session?.user?.role === 'patient' ? (
+								<AppointmentsPage session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/checkout"
+						element={
+							session?.user?.role === 'patient' ? (
+								<CheckoutPage session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/payment/success"
+						element={
+							session?.user?.role === 'patient' ? (
+								<PaymentSuccessPage session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/payment/cancel"
+						element={
+							session?.user?.role === 'patient' ? <PaymentCancelPage /> : <Navigate to="/login" replace />
+						}
+					/>
+					<Route
+						path="/dashboard/doctor"
+						element={
+							session?.user?.role === 'doctor' ? (
+								<DoctorDashboard session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/dashboard/admin"
+						element={
+							session?.user?.role === 'admin' ? (
+								<AdminDashboard session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+					<Route
+						path="/ai-assist"
+						element={
+							session?.user?.role === 'patient' ? (
+								<AIAssistPage session={session} />
+							) : (
+								<Navigate to="/login" replace />
+							)
+						}
+					/>
+				</Routes>
+			</main>
+			<Footer />
+		</div>
+	);
+}
+
+export default App;
