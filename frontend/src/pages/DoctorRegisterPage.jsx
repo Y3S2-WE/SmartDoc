@@ -15,6 +15,30 @@ const initialState = {
   consultationFee: '', clinicAddress: '', city: '', district: '',
 };
 
+const REQUIRED_FIELDS_BY_STEP = {
+  1: ['fullName', 'email', 'password', 'confirmPassword', 'phoneNumber', 'profilePhoto'],
+  2: ['medicalLicenseNumber', 'specialization', 'yearsOfExperience', 'qualifications'],
+  3: ['hospitalOrClinicName', 'consultationFee', 'clinicAddress', 'city', 'district'],
+};
+
+const FIELD_LABELS = {
+  fullName: 'Full Name',
+  email: 'Email Address',
+  password: 'Password',
+  confirmPassword: 'Confirm Password',
+  phoneNumber: 'Phone Number',
+  profilePhoto: 'Profile Photo',
+  medicalLicenseNumber: 'Medical License Number',
+  specialization: 'Specialization',
+  yearsOfExperience: 'Years of Experience',
+  qualifications: 'Qualifications',
+  hospitalOrClinicName: 'Hospital / Clinic Name',
+  consultationFee: 'Consultation Fee',
+  clinicAddress: 'Clinic Address',
+  city: 'City',
+  district: 'District',
+};
+
 function DoctorRegisterPage({ onLogin }) {
   const navigate = useNavigate();
   const [form, setForm] = useState(initialState);
@@ -48,6 +72,15 @@ function DoctorRegisterPage({ onLogin }) {
 
   const submit = async (event) => {
     event.preventDefault();
+
+    const allStepIds = Object.keys(REQUIRED_FIELDS_BY_STEP).map(Number);
+    for (const stepId of allStepIds) {
+      if (!validateStep(stepId)) {
+        setCurrentStep(stepId);
+        return;
+      }
+    }
+
     setLoading(true);
     setFeedback('');
     try {
@@ -57,12 +90,38 @@ function DoctorRegisterPage({ onLogin }) {
         consultationFee: form.consultationFee ? Number(form.consultationFee) : '',
       });
       onLogin(response.data);
-      navigate('/login');
+      navigate('/dashboard/doctor');
     } catch (error) {
       setFeedback(error.response?.data?.message || 'Doctor registration failed.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const validateStep = (step) => {
+    const requiredFields = REQUIRED_FIELDS_BY_STEP[step] || [];
+    const missingField = requiredFields.find((field) => String(form[field] || '').trim() === '');
+
+    if (missingField) {
+      setFeedback(`${FIELD_LABELS[missingField]} is required.`);
+      return false;
+    }
+
+    if (step === 1 && form.password !== form.confirmPassword) {
+      setFeedback('Password and confirm password must match.');
+      return false;
+    }
+
+    setFeedback('');
+    return true;
+  };
+
+  const goToNextStep = () => {
+    if (!validateStep(currentStep)) {
+      return;
+    }
+
+    setCurrentStep(Math.min(3, currentStep + 1));
   };
 
   const f = (field) => ({ value: form[field], onChange: (e) => setForm({ ...form, [field]: e.target.value }) });
@@ -177,10 +236,10 @@ function DoctorRegisterPage({ onLogin }) {
                     <input {...f('specialization')} placeholder="Cardiology, Internal Medicine..." required className={dFieldClass()} />
                   </DRegField>
                   <DRegField label="Years of Experience">
-                    <input type="number" min="0" max="60" {...f('yearsOfExperience')} placeholder="e.g. 8" className={dFieldClass()} />
+                    <input type="number" min="0" max="60" {...f('yearsOfExperience')} placeholder="e.g. 8" required className={dFieldClass()} />
                   </DRegField>
                   <DRegField label="Qualifications">
-                    <input {...f('qualifications')} placeholder="MBBS, MD, MRCP..." className={dFieldClass()} />
+                    <input {...f('qualifications')} placeholder="MBBS, MD, MRCP..." required className={dFieldClass()} />
                   </DRegField>
                 </div>
               </DoctorFormSection>
@@ -191,19 +250,19 @@ function DoctorRegisterPage({ onLogin }) {
               <DoctorFormSection title="Practice Information" subtitle="Where you practice and consultation fees">
                 <div className="grid gap-4 md:grid-cols-2">
                   <DRegField label="Hospital / Clinic Name" icon={<Building2 size={13} />}>
-                    <input {...f('hospitalOrClinicName')} placeholder="City Medical Center" className={dFieldClass()} />
+                    <input {...f('hospitalOrClinicName')} placeholder="City Medical Center" required className={dFieldClass()} />
                   </DRegField>
                   <DRegField label="Consultation Fee (LKR)" icon={<DollarSign size={13} />}>
-                    <input type="number" min="0" {...f('consultationFee')} placeholder="e.g. 2500" className={dFieldClass()} />
+                    <input type="number" min="0" {...f('consultationFee')} placeholder="e.g. 2500" required className={dFieldClass()} />
                   </DRegField>
                   <DRegField label="Clinic Address" icon={<MapPin size={13} />}>
-                    <input {...f('clinicAddress')} placeholder="No. 15, Hospital Road" className={dFieldClass()} />
+                    <input {...f('clinicAddress')} placeholder="No. 15, Hospital Road" required className={dFieldClass()} />
                   </DRegField>
                   <DRegField label="City">
-                    <input {...f('city')} placeholder="Colombo" className={dFieldClass()} />
+                    <input {...f('city')} placeholder="Colombo" required className={dFieldClass()} />
                   </DRegField>
                   <DRegField label="District">
-                    <input {...f('district')} placeholder="Western" className={dFieldClass()} />
+                    <input {...f('district')} placeholder="Western" required className={dFieldClass()} />
                   </DRegField>
                 </div>
               </DoctorFormSection>
@@ -237,7 +296,7 @@ function DoctorRegisterPage({ onLogin }) {
               {currentStep < 3 ? (
                 <button
                   type="button"
-                  onClick={() => setCurrentStep(Math.min(3, currentStep + 1))}
+                  onClick={goToNextStep}
                   className="rounded-xl px-5 py-2.5 text-sm font-bold text-white transition hover:-translate-y-0.5"
                   style={{ background: 'linear-gradient(135deg, #0F766E, #14B8A6)', boxShadow: '0 4px 16px rgba(20,184,166,0.30)' }}
                 >

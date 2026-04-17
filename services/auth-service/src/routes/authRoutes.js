@@ -99,16 +99,24 @@ router.post(
     passwordRule,
     confirmPasswordRule,
     phoneRule,
+    body('profilePhoto').trim().notEmpty().withMessage('Profile photo is required'),
     body('medicalLicenseNumber').notEmpty().withMessage('Medical license number is required'),
     body('specialization').notEmpty().withMessage('Specialization is required'),
     body('yearsOfExperience')
-      .optional({ values: 'falsy' })
+      .notEmpty()
+      .withMessage('Years of experience is required')
       .isInt({ min: 0 })
       .withMessage('Years of experience must be a non-negative number'),
+    body('qualifications').trim().notEmpty().withMessage('Qualifications are required'),
+    body('hospitalOrClinicName').trim().notEmpty().withMessage('Hospital or clinic name is required'),
     body('consultationFee')
-      .optional({ values: 'falsy' })
+      .notEmpty()
+      .withMessage('Consultation fee is required')
       .isFloat({ min: 0 })
-      .withMessage('Consultation fee must be a non-negative number')
+      .withMessage('Consultation fee must be a non-negative number'),
+    body('clinicAddress').trim().notEmpty().withMessage('Clinic address is required'),
+    body('city').trim().notEmpty().withMessage('City is required'),
+    body('district').trim().notEmpty().withMessage('District is required')
   ],
   registerDoctor
 );
